@@ -22,8 +22,6 @@ const db = getFirestore(app);
 const secureCodes = { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال' };
 
-const menuBtn = document.getElementById('menuBtn');
-const closeBtn = document.getElementById('closeBtn');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const toast = document.getElementById('toast');
@@ -42,6 +40,7 @@ const views = {
     '👥 إدارة المنخرطين': 'view-subscribers',
     '💧 إدارة ماء الشرب': 'view-water', 
     '📊 الإحصائيات الشهرية': 'view-stats',
+    '📊 التقارير المالية': 'view-reports',
     '💰 المداخيل والمصاريف': 'view-finance',
     '📒 الديون والأرصدة': 'view-debts', 
     '📜 القانون الأساسي': 'view-bylaws', 
@@ -139,7 +138,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل وإدارة الواجهات
+// 5. التنقل وإدارة الواجهات وإغلاق القائمة فوراً
 // ==========================================
 window.toggleSidebar = function() { 
     if(sidebar) sidebar.classList.toggle('active'); 
@@ -154,8 +153,9 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    if (sidebar && sidebar.classList.contains('active')) sidebar.classList.remove('active');
-    if (overlay && overlay.classList.contains('active')) overlay.classList.remove('active');
+    // إغلاق القائمة الجانبية فور النقر على أي خيار لمنع التداخل
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
 
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     
@@ -167,6 +167,7 @@ window.navigateTo = function(pageName) {
         if(pageName === '💰 المداخيل والمصاريف') renderTransactions();
         if(pageName === '🗄️ الأرشيف والتخزين') renderArchive();
         if(pageName === '📊 الإحصائيات الشهرية') renderMonthlyStats();
+        if(pageName === '📊 التقارير المالية') updateFinancialDashboard();
         showToast('تم الانتقال إلى: ' + pageName);
     }
 }
@@ -227,7 +228,6 @@ window.saveSubscriber = async function() {
     try {
         showToast('جاري الحفظ...');
         if (editingId) {
-            // تعديل مشترك موجود
             await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location });
             showToast('تم تعديل بيانات المشترك بنجاح!');
             resetSubForm();
@@ -381,7 +381,7 @@ window.autoFillSubscriber = function() {
 };
 
 // ==========================================
-// 9. العمليات المالية والمسح الضوئي للمستندات
+// 9. العمليات المالية والتقارير
 // ==========================================
 window.updateFinancialDashboard = function() {
     const netBalance = totalIncome - totalExpense;
@@ -389,6 +389,10 @@ window.updateFinancialDashboard = function() {
     const expReport = document.getElementById('totalExpenseReport');
     const netReport = document.getElementById('netBalanceReport');
     const dashBal = document.getElementById('dashBalance');
+    
+    if(incReport) incReport.textContent = totalIncome + ' درهم';
+    if(expReport) expReport.textContent = totalExpense + ' درهم';
+    if(netReport) netReport.textContent = netBalance + ' درهم';
     if(dashBal) dashBal.textContent = netBalance + ' درهم';
 };
 
@@ -481,7 +485,6 @@ window.calculateBill = function() {
         t2_cost = currentT2 * appSettings.tier2;
         t3_cost = currentT3 * appSettings.tier3;
     } else {
-        // النظام القديم المطلوب
         maintenance = 15;
         if (consumption <= 20) { currentT1 = consumption; } 
         else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } 
@@ -575,7 +578,6 @@ window.saveBill = async function(isPaid) {
                 });
             }
 
-            // نظام إنذار وترشيد الاستهلاك عبر واتساب إذا تجاوز الاستهلاك الشهري 20 طناً
             if (currentConsumptionData > 20 && sub && sub.phone) {
                 setTimeout(() => {
                     if (confirm(`تنبيه: هذا المشترك (${subNameStr}) تجاوز استهلاكه 20 طناً (${currentConsumptionData} m³).\nهل تريد إرسال إنذار ترشيد الاستهلاك عبر واتساب؟`)) {
@@ -612,7 +614,7 @@ window.sendWhatsAppNotification = function() {
 };
 
 // ==========================================
-// 11. الإحصائيات الشهرية (مجموع الاستهلاك، الأشطر، والأكثر استهلاكاً)
+// 11. الإحصائيات الشهرية
 // ==========================================
 window.renderMonthlyStats = function() {
     const container = document.getElementById('statsContainer');
