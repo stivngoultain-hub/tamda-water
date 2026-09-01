@@ -9,5 +9,19 @@
   "start_url": "index.html",
   "theme_color": "#1b6393",
   "id": "tamda-water-app",
-  "description": "Gestion de l'eau potable de l'Association Tamda"
+  "description": "Gestion de l'eau potable de l'Association Tamda",
+  "icons": [
+    {
+      "src": "launchericon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "launchericon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
