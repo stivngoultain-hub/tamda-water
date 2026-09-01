@@ -29,9 +29,9 @@ header {
 header h2 { margin: 0; font-size: 1.3rem; }
 .menu-btn { font-size: 26px; cursor: pointer; background: none; border: none; color: white; padding: 5px; line-height: 1; }
 
-/* إصلاح السيد بار ليبقى مخفياً تماماً ولا يظهر إلا بالضغط */
+/* السيد بار مخفي تماماً بالخارج ولا يظهر إلا عند تفعيله */
 .sidebar { 
-    height: 100%; width: 280px; position: fixed; top: 0; right: -280px; 
+    height: 100%; width: 280px; position: fixed; top: 0; right: -290px; 
     background-color: white; box-shadow: -5px 0 20px rgba(0,0,0,0.25); 
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100000; padding-top: 50px; 
     display: flex; flex-direction: column; overflow-y: auto; 
