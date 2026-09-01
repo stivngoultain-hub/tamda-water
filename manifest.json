@@ -5,17 +5,5 @@
   "display": "standalone",
   "background_color": "#f4f7f6",
   "theme_color": "#1b6393",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "icon-192x192.png",
-      "sizes": "192x192",
-      "type": "https://github.com/stivngoultain-hub/tamda-water/blob/main/20260901_005328.png"
-    },
-    {
-      "src": "icon-512x512.png",
-      "sizes": "512x512",
-      "type": "https://github.com/stivngoultain-hub/tamda-water/blob/main/20260901_005959.png"
-    }
-  ]
+  "orientation": "portrait"
 }
