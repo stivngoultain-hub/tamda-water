@@ -142,11 +142,11 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل وإغلاق القائمة الجانبية فوراً
+// 5. التنقل وإغلاق القائمة الجانبية جذرياً
 // ==========================================
 window.toggleSidebar = function() { 
-    if(sidebar) sidebar.classList.toggle('active'); 
-    if(overlay) overlay.classList.toggle('active'); 
+    if (sidebar) sidebar.classList.toggle('active'); 
+    if (overlay) overlay.classList.toggle('active'); 
 }
 
 window.showToast = function(message) {
@@ -157,7 +157,7 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق القائمة والخلفية المعتمة تماماً عند النقر على أي صفحة
+    // إغلاق القائمة الجانبية والخلفية المعتمة إجبارياً وفوراً عند الانتقال لأي صفحة (بما فيها الأرشيف)
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
 
