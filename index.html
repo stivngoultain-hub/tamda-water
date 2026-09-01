@@ -40,20 +40,21 @@
         <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
         <div class="sidebar" id="sidebar">
             <span class="close-btn" id="closeBtn" onclick="toggleSidebar()">×</span>
-            <div style="text-align:center; margin:15px 0; color:var(--accent-green); font-weight:bold;" id="activeUserLabel"></div>
+            <div style="text-align:center; margin:10px 0; color:var(--accent-green); font-weight:bold; font-size:0.9rem;" id="activeUserLabel"></div>
             
             <h3>القائمة الرئيسية</h3>
             <a onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
             <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
             <a onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
             <a onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشهرية</a>
+            <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
             <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
             <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
             <a onclick="navigateTo('📜 القانون الأساسي')">📜 القانون الأساسي</a>
             <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
             <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
             
-            <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 15px;">🚪 تسجيل الخروج والقفل</a>
+            <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج والقفل</a>
         </div>
     </div>
 
@@ -110,7 +111,6 @@
                 <div class="form-group"><label>القراءة الحالية (m³)</label><input type="number" id="currReading" oninput="calculateBill()"></div>
                 <div class="form-group"><label>أشهر التأخير المتراكمة</label><input type="number" id="delayMonths" value="0" min="0" oninput="calculateBill()"></div>
                 
-                <!-- خانة الإعفاء للحالات الخاصة -->
                 <div class="form-group" style="background: #eef9ff; padding: 10px; border-radius: 8px; border: 1px dashed var(--secondary-cyan);">
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--primary-blue); font-weight: bold;">
                         <input type="checkbox" id="exemptionCheck" onchange="calculateBill()" style="width: 20px; height: 20px;">
@@ -170,7 +170,20 @@
             </div>
         </div>
 
-        <!-- 5. المداخيل والمصاريف -->
+        <!-- 5. التقارير المالية -->
+        <div id="view-reports" class="view-section" style="display: none;">
+            <div class="card">
+                <div class="print-header" style="display:none; text-align:center; margin-bottom:20px;"><h2>جمعية تامدة للتنمية</h2><p>التقرير المالي العام</p><hr></div>
+                <h3>📊 التقرير المالي العام</h3>
+                <div class="stat-row"><span>مجموع المداخيل:</span><strong class="text-success" id="totalIncomeReport">0 درهم</strong></div>
+                <div class="stat-row"><span>مجموع المصاريف:</span><strong class="text-danger" id="totalExpenseReport">0 درهم</strong></div>
+                <hr style="border:0; border-top:2px solid #eee; margin:15px 0;">
+                <div class="stat-row"><span>الرصيد الصافي:</span><strong id="netBalanceReport" style="font-size: 1.3rem; color: var(--primary-blue);">0 درهم</strong></div>
+                <div class="no-print"><button class="btn btn-outline" style="margin-top:20px;" onclick="window.print()">🖨️ طبع التقرير المالي</button></div>
+            </div>
+        </div>
+
+        <!-- 6. المداخيل والمصاريف -->
         <div id="view-finance" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>💰 تسجيل المداخيل والمصاريف</h3>
@@ -190,7 +203,7 @@
             </div>
         </div>
 
-        <!-- 6. الديون والأرصدة -->
+        <!-- 7. الديون والأرصدة -->
         <div id="view-debts" class="view-section" style="display: none;">
             <div class="card">
                 <h3>📒 لائحة الديون والأرصدة غير المستخلصة</h3>
@@ -198,7 +211,7 @@
             </div>
         </div>
 
-        <!-- 7. القانون الأساسي -->
+        <!-- 8. القانون الأساسي -->
         <div id="view-bylaws" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>📜 تعديل القانون الأساسي</h3>
@@ -211,7 +224,7 @@
             </div>
         </div>
 
-        <!-- 8. الأرشيف وملف الاستهلاك الشهري الشامل -->
+        <!-- 9. الأرشيف وملف الاستهلاك الشهري الشامل -->
         <div id="view-archive" class="view-section" style="display: none;">
             <div class="card">
                 <h3>🗂️ ملف الاستهلاك الشهري والأرشيف الشامل</h3>
@@ -220,7 +233,7 @@
             </div>
         </div>
 
-        <!-- 9. الإعدادات -->
+        <!-- 10. الإعدادات -->
         <div id="view-settings" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>⚙️ الإعدادات وتخصيص الأثمنة (النظام الحالي)</h3>
