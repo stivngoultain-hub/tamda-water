@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ==========================================
-// 2. المتغيرات العامة والأوفلاين
+// 2. المتغيرات العامة والتتبع ونظام الأوفلاين
 // ==========================================
 let secureCodes = JSON.parse(localStorage.getItem('tamda_codes')) || { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال' };
@@ -34,6 +34,7 @@ let appSettings = { tier1: 4, tier2: 8, tier3: 15, maintenance: 15, penalty: 50 
 let transactionsList = []; 
 let archiveBills = []; 
 let archiveFinance = [];
+let sessionStartTime = Date.now();
 
 const views = {
     '🏠 لوحة القيادة': 'view-dashboard', 
@@ -43,13 +44,13 @@ const views = {
     '📊 التقارير المالية': 'view-reports',
     '💰 المداخيل والمصاريف': 'view-finance',
     '📒 الديون والأرصدة': 'view-debts', 
-    '📜 القانون الأساسي': 'view-bylaws', 
+    '📜 القانون والتقارير': 'view-bylaws', 
     '🗄️ الأرشيف والتخزين': 'view-archive',
     '⚙️ الإعدادات': 'view-settings'
 };
 
 // ==========================================
-// 3. التحميل الأولي والاتصال
+// 3. التحميل الأولي والاتصال ونشاط الأعضاء
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth(); 
@@ -62,11 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if(bylawInput) bylawInput.value = savedBylaw;
     if(bylawDisplay) bylawDisplay.textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
 
+    renderPDFReportsList();
+
     window.addEventListener('online', () => { updateOnlineStatus(true); syncOfflineQueue(); });
     window.addEventListener('offline', () => { updateOnlineStatus(false); });
     
     updateOnlineStatus(navigator.onLine);
     if(navigator.onLine) { loadDataFromCloud(); }
+
+    // تتبع وقت العمل وإرسال حالة التواجد كل بضع ثوانٍ
+    setInterval(updateSessionTimeAndPresence, 10000);
 });
 
 function updateOnlineStatus(isOnline) {
@@ -155,7 +161,7 @@ async function syncOfflineQueue() {
 }
 
 // ==========================================
-// 4. المصادقة وتغيير الرمز
+// 4. المصادقة وتتبع نشاط وساعات عمل الأعضاء
 // ==========================================
 window.checkAuth = function() {
     if(sessionStorage.getItem('tamda_auth') === 'true') {
@@ -176,6 +182,11 @@ window.authenticate = function() {
     if(secureCodes[role] === code) {
         sessionStorage.setItem('tamda_auth', 'true'); 
         sessionStorage.setItem('tamda_role', role);
+        sessionStartTime = Date.now();
+        
+        // تسجيل الدخول في سجل النشاط الشهري
+        recordLoginStats(role);
+
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
         document.getElementById('activeUserLabel').textContent = "مرحباً: " + roleNames[role];
@@ -183,6 +194,59 @@ window.authenticate = function() {
     } else { 
         const err = document.getElementById('loginError');
         if(err) err.style.display = 'block'; 
+    }
+}
+
+function recordLoginStats(role) {
+    let currentMonth = new Date().toISOString().slice(0, 7);
+    let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
+    if(!allActivity[currentMonth]) allActivity[currentMonth] = {};
+    if(!allActivity[currentMonth][role]) {
+        allActivity[currentMonth][role] = { logins: 0, minutes: 0 };
+    }
+    allActivity[currentMonth][role].logins += 1;
+    localStorage.setItem('tamda_member_activity', JSON.stringify(allActivity));
+}
+
+function updateSessionTimeAndPresence() {
+    if(sessionStorage.getItem('tamda_auth') !== 'true') return;
+    let role = sessionStorage.getItem('tamda_role');
+    let currentMonth = new Date().toISOString().slice(0, 7);
+    
+    // تحديث ساعات العمل (بالدقائق)
+    let elapsedMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+    if(elapsedMinutes > 0) {
+        let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
+        if(allActivity[currentMonth] && allActivity[currentMonth][role]) {
+            // حفظ تراكمي بسيط للدقائق النشطة
+            sessionStartTime = Date.now(); // إعادة ضبط المرجع
+            allActivity[currentMonth][role].minutes += elapsedMinutes;
+            localStorage.setItem('tamda_member_activity', JSON.stringify(allActivity));
+        }
+    }
+
+    // محاكاة / تتبع التواجد المتزامن عبر LocalStorage heartbeat للأعضاء
+    let now = Date.now();
+    let presences = JSON.parse(localStorage.getItem('tamda_presences')) || {};
+    presences[role] = now;
+    localStorage.setItem('tamda_presences', JSON.stringify(presences));
+
+    // فحص من هو متواجد خلال آخر 15 ثانية
+    let activePeers = [];
+    for(let r in presences) {
+        if(now - presences[r] < 15000 && r !== role) {
+            activePeers.push(roleNames[r]);
+        }
+    }
+
+    const badge = document.getElementById('activePeerBadge');
+    if(badge) {
+        if(activePeers.length > 0) {
+            badge.style.display = 'inline-block';
+            badge.textContent = `⚡ متواجد معك: ${activePeers.join(', ')}`;
+        } else {
+            badge.style.display = 'none';
+        }
     }
 }
 
@@ -202,8 +266,25 @@ window.updatePassword = function() {
     showToast(`تم تحديث الرمز السري لـ (${roleNames[role]}) بنجاح!`);
 };
 
+function renderMemberActivityStats() {
+    const container = document.getElementById('memberActivityStats');
+    if(!container) return;
+    let currentMonth = new Date().toISOString().slice(0, 7);
+    let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
+    let monthData = allActivity[currentMonth] || {};
+
+    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><ul style="padding-right:20px; margin:5px 0;">`;
+    for(let r in roleNames) {
+        let stats = monthData[r] || { logins: 0, minutes: 0 };
+        let hours = (stats.minutes / 60).toFixed(1);
+        html += `<li><strong>${roleNames[r]}:</strong> ${stats.logins} تسجيل دخول | ${hours} ساعات عمل</li>`;
+    }
+    html += `</ul>`;
+    container.innerHTML = html;
+}
+
 // ==========================================
-// 5. التحكم بالسيد بار (إخفاء وإظهار بالضغط)
+// 5. التحكم بالسيد بار (إخفاء تماماً وعدم ظهوره إلا بالنقر)
 // ==========================================
 window.toggleSidebar = function() { 
     if (sidebar) sidebar.classList.toggle('active'); 
@@ -218,7 +299,7 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق السيد بار قسرياً وفوراً عند الضغط على أي عنصر منه للانتقال
+    // إخفاء السيد بار فوراً عند الضغط على أي عنصر
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
 
@@ -227,18 +308,19 @@ window.navigateTo = function(pageName) {
     if (views[pageName] && document.getElementById(views[pageName])) {
         document.getElementById(views[pageName]).style.display = 'block';
         if(pageName === '👥 إدارة المنخرطين') renderSubscribers();
-        if(pageName === '⚙️ الإعدادات') loadSettingsToInputs();
+        if(pageName === '⚙️ الإعدادات') { loadSettingsToInputs(); renderMemberActivityStats(); }
         if(pageName === '📒 الديون والأرصدة') renderDebts();
         if(pageName === '💰 المداخيل والمصاريف') renderTransactions();
         if(pageName === '🗄️ الأرشيف والتخزين') renderArchive();
         if(pageName === '📊 الإحصائيات الشهرية') renderAdvancedStats();
         if(pageName === '📊 التقارير المالية') updateFinancialDashboard();
+        if(pageName === '📜 القانون والتقارير') renderPDFReportsList();
         showToast('تم الانتقال إلى: ' + pageName);
     }
 }
 
 // ==========================================
-// 6. الإعدادات والقانون الأساسي
+// 6. الإعدادات والقانون الأساسي ورفع PDF
 // ==========================================
 function loadSettings() { 
     let savedSettings = localStorage.getItem('tamda_settings');
@@ -272,6 +354,59 @@ window.saveBylaws = function() {
     showToast('تم حفظ القانون الأساسي بنجاح');
 }
 
+window.uploadFinancialPDF = function() {
+    const fileInput = document.getElementById('pdfReportFile');
+    const titleInput = document.getElementById('pdfReportTitle');
+    if(!fileInput.files || fileInput.files.length === 0) { showToast('المرجو اختيار ملف PDF'); return; }
+    
+    let file = fileInput.files[0];
+    let title = titleInput.value.trim() || file.name;
+    
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        let base64Data = e.target.result;
+        let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
+        reports.push({ title: title, data: base64Data, date: new Date().toLocaleDateString('ar-MA') });
+        localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports));
+        
+        fileInput.value = '';
+        titleInput.value = '';
+        showToast('تم رفع وحفظ التقرير المالي بنجاح!');
+        renderPDFReportsList();
+    };
+    reader.readAsDataURL(file);
+};
+
+window.renderPDFReportsList = function() {
+    const container = document.getElementById('pdfReportsContainer');
+    if(!container) return;
+    let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
+    if(reports.length === 0) { container.innerHTML = ''; return; }
+
+    let html = `<h4 style="color:var(--primary-blue); margin-top:15px;">📁 التقارير المالية المرفوعة (PDF):</h4><div style="display:flex; flex-direction:column; gap:8px;">`;
+    reports.forEach((rep, idx) => {
+        html += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
+            <div><strong>${rep.title}</strong><span style="font-size:0.8rem; color:#666;">تاريخ الرفع: ${rep.date}</span></div>
+            <div style="display:flex; gap:5px;">
+                <a href="${rep.data}" download="${rep.title}.pdf" class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem; text-decoration:none;">📥 تحميل PDF</a>
+                <button class="action-btn" onclick="deletePDFReport(${idx})">حذف</button>
+            </div>
+        </div>`;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+};
+
+window.deletePDFReport = function(index) {
+    if(confirm('حذف هذا التقرير المالي؟')) {
+        let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
+        reports.splice(index, 1);
+        localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports));
+        renderPDFReportsList();
+        showToast('تم الحذف بنجاح');
+    }
+};
+
 // ==========================================
 // 7. إدارة المنخرطين
 // ==========================================
@@ -302,7 +437,7 @@ window.saveSubscriber = async function() {
             let newSub = {
                 firestoreId: 'local_' + Date.now(),
                 counter: counter, name: name, phone: phone, location: location,
-                lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: ''
+                lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: '', avgConsumption: 15
             };
             subscribers.push(newSub);
             subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
@@ -571,13 +706,13 @@ window.deleteTransaction = async function(firestoreId) {
 };
 
 // ==========================================
-// 10. حساب وفواتير الماء
+// 10. حساب وفواتير الماء مع التنبيهات الذكية
 // ==========================================
 let currentConsumptionData = 0;
 let currentT1 = 0, currentT2 = 0, currentT3 = 0;
 
 window.calculateBill = function() {
-    const counterNum = document.getElementById('counterNum').value || 'غير محدد';
+    const counterNumInput = document.getElementById('counterNum').value.trim();
     const subName = document.getElementById('subscriberName').value || 'غير محدد';
     const billingMonth = document.getElementById('billingMonth').value || 'غير محدد';
     const prev = parseFloat(document.getElementById('prevReading').value) || 0;
@@ -585,12 +720,40 @@ window.calculateBill = function() {
     const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0;
     const tariffSystem = document.getElementById('tariffSystem').value;
     const isExempt = document.getElementById('exemptionCheck').checked;
+    const alertBox = document.getElementById('smartAlertBox');
 
-    if (!document.getElementById('counterNum').value) return;
+    if (!counterNumInput) return;
     if (curr < prev) { showToast('القراءة الحالية أقل من السابقة!'); return; }
 
     const consumption = curr - prev;
     currentConsumptionData = consumption;
+
+    // فحص التنبيهات الذكية المطلوبة
+    let alertMessages = [];
+
+    // 1. تنبيه نسيان قراءة عداد سابق أو لاحق
+    let currentCounterNum = parseInt(counterNumInput);
+    let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
+    let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
+    if (prevCounterExists || nextCounterExists) {
+        alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور (سابق أو لاحق) لم يسجل لشهر ' + billingMonth + '.');
+    }
+
+    // 2. تنبيه الاستهلاك (إذا كان معدله العالي >20 وسجل له أقل من 10)
+    let sub = subscribers.find(s => s.counter == counterNumInput);
+    let historicAvg = sub ? (sub.avgConsumption || 25) : 25; // افتراض المعيار النموذجي 25 طن للمقارنة
+    if (historicAvg > 20 && consumption < 10) {
+        alertMessages.push(`⚠️ تنبيه دقة المعلومات: هذا المنخرط يستهلك عادة أكثر من 20 طن، ولكن قمت بتسجيل ${consumption} طن فقط! المرجو إعادة التأكد من صحة القراءة.`);
+    }
+
+    if (alertMessages.length > 0) {
+        alertBox.style.display = 'block';
+        alertBox.innerHTML = alertMessages.join('<br>');
+    } else {
+        alertBox.style.display = 'none';
+        alertBox.innerHTML = '';
+    }
+
     currentT1 = 0; currentT2 = 0; currentT3 = 0;
     let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0;
 
@@ -633,7 +796,7 @@ window.calculateBill = function() {
 
     document.getElementById('printMonth').textContent = billingMonth; 
     document.getElementById('printName').textContent = subName;
-    document.getElementById('printCounter').textContent = counterNum; 
+    document.getElementById('printCounter').textContent = counterNumInput; 
     document.getElementById('printPrev').textContent = prev;
     document.getElementById('printCurr').textContent = curr; 
     document.getElementById('printMaintenance').textContent = maintenance + ' درهم';
@@ -667,9 +830,10 @@ window.saveBill = async function(isPaid) {
                 let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1);
                 let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal);
                 sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt;
+                sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData));
                 
                 if(navigator.onLine && !sub.firestoreId.startsWith('local_')) {
-                    await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt }).catch(() => {});
+                    await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }).catch(() => {});
                 }
             }
 
@@ -695,6 +859,7 @@ window.saveBill = async function(isPaid) {
             document.getElementById('billResult').style.display = 'none';
             document.getElementById('currReading').value = '';
             document.getElementById('exemptionCheck').checked = false;
+            document.getElementById('smartAlertBox').style.display = 'none';
             
             let nextCounter = parseInt(counterInput);
             if (!isNaN(nextCounter)) { document.getElementById('counterNum').value = nextCounter + 1; }
@@ -715,7 +880,7 @@ window.sendWhatsAppNotification = function() {
 };
 
 // ==========================================
-// 11. الإحصائيات المتقدمة (شهرية وسنوية مع رسوم بيانية Charts)
+// 11. الإحصائيات المتقدمة (شهرية وسنوية مع رسوم بيانية)
 // ==========================================
 window.toggleStatInputs = function() {
     const type = document.getElementById('statTypeSelect').value;
@@ -766,7 +931,6 @@ window.renderAdvancedStats = function() {
         }
     });
 
-    // حساب النسب المئوية للمبيانات
     let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0;
     let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0;
     let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0;
