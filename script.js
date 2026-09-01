@@ -29,10 +29,10 @@ let complaintsList = [];
 let appSettings = { tier1: 4, tier2: 8, tier3: 15, maintenance: 15, penalty: 50 }; 
 let transactionsList = []; let donationsList = []; 
 let archiveBills = []; let archiveFinance = [];
-let capitalLedger = []; // الصندوق المالي
+let capitalLedger = []; 
 let sessionStartTime = Date.now();
 
-const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 دقيقة للمغادرة الكلية
+const SESSION_TIMEOUT = 15 * 60 * 1000; 
 
 const views = {
     '🏠 لوحة القيادة': 'view-dashboard', 
@@ -53,21 +53,26 @@ const views = {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadLocalData();
-    checkAuth(); 
     loadSettings();
+    checkAuth(); 
+    
     let savedBylaw = localStorage.getItem('tamda_bylaws') || '';
     if(document.getElementById('bylawInput')) document.getElementById('bylawInput').value = savedBylaw;
     if(document.getElementById('bylawDisplay')) document.getElementById('bylawDisplay').textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
+    
     renderPDFReportsList();
+    
     window.addEventListener('online', () => { updateOnlineStatus(true); syncOfflineQueue(); });
     window.addEventListener('offline', () => { updateOnlineStatus(false); });
     updateOnlineStatus(navigator.onLine);
+    
     if(navigator.onLine) { loadDataFromCloud(); }
     
-    // مراقبة النشاط للجلسات (15 دقيقة)
     ['click', 'touchstart', 'keypress', 'scroll'].forEach(evt => document.addEventListener(evt, updateLastActive));
     setInterval(checkSessionTimeout, 10000);
 });
+
+// ================== الدوال الأساسية ==================
 
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
@@ -76,17 +81,17 @@ function updateOnlineStatus(isOnline) {
     statusEl.style.background = isOnline ? "#25D366" : "#c1272d";
 }
 
-// نظام الجلسة - تحديث وقت النشاط
 function updateLastActive() {
     if(localStorage.getItem('tamda_auth') === 'true') {
         localStorage.setItem('tamda_last_active', Date.now());
     }
 }
+
 function checkSessionTimeout() {
     if(localStorage.getItem('tamda_auth') === 'true') {
         let last = parseInt(localStorage.getItem('tamda_last_active') || Date.now());
         if(Date.now() - last > SESSION_TIMEOUT) {
-            window.logout(true); // خروج بسبب انتهاء الجلسة
+            logout(true);
         }
     }
 }
@@ -118,6 +123,31 @@ function recalculateFinancials() {
     totalDonationsIncome = 0;
     donationsList.forEach(d => { totalDonationsIncome += Number(d.amount || 0); });
     totalIncome = transIncome + totalDonationsIncome;
+}
+
+function loadSettings() {
+    let saved = JSON.parse(localStorage.getItem('tamda_settings'));
+    if(saved) {
+        appSettings = Object.assign(appSettings, saved);
+    }
+}
+
+function loadSettingsToInputs() {
+    if(document.getElementById('setTier1')) document.getElementById('setTier1').value = appSettings.tier1;
+    if(document.getElementById('setTier2')) document.getElementById('setTier2').value = appSettings.tier2;
+    if(document.getElementById('setTier3')) document.getElementById('setTier3').value = appSettings.tier3;
+    if(document.getElementById('setMaintenance')) document.getElementById('setMaintenance').value = appSettings.maintenance;
+    if(document.getElementById('setPenalty')) document.getElementById('setPenalty').value = appSettings.penalty;
+}
+
+function saveSettings() {
+    appSettings.tier1 = parseFloat(document.getElementById('setTier1').value) || 4;
+    appSettings.tier2 = parseFloat(document.getElementById('setTier2').value) || 8;
+    appSettings.tier3 = parseFloat(document.getElementById('setTier3').value) || 15;
+    appSettings.maintenance = parseFloat(document.getElementById('setMaintenance').value) || 15;
+    appSettings.penalty = parseFloat(document.getElementById('setPenalty').value) || 50;
+    localStorage.setItem('tamda_settings', JSON.stringify(appSettings));
+    showToast('تم حفظ الإعدادات بنجاح!');
 }
 
 async function loadDataFromCloud() {
@@ -156,7 +186,7 @@ async function loadDataFromCloud() {
                 renderDonations(); 
                 renderDebts(); 
                 renderAdminComplaints();
-                processAutoMonthlyCapital(); // المعالجة الأوتوماتيكية للصندوق
+                processAutoMonthlyCapital();
                 renderCapital();
             }
         }
@@ -187,7 +217,9 @@ async function syncOfflineQueue() {
     } catch (e) { console.error(e); }
 }
 
-window.checkAuth = function() {
+// ================== نظام الدخول والحماية ==================
+
+function checkAuth() {
     if(localStorage.getItem('tamda_auth') === 'true') {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
@@ -205,12 +237,15 @@ window.checkAuth = function() {
             navigateTo('🏠 لوحة القيادة');
             renderCapital();
         }
+    } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContent').style.display = 'none';
     }
 }
 
-window.handleEnter = function(e) { if (e.key === 'Enter') authenticate(); }
+function handleEnter(e) { if (e.key === 'Enter') authenticate(); }
 
-window.authenticate = function() {
+function authenticate() {
     const role = document.getElementById('userRole').value;
     const code = document.getElementById('loginCode').value.trim();
     const err = document.getElementById('loginError');
@@ -226,6 +261,7 @@ window.authenticate = function() {
             localStorage.setItem('tamda_subname', sub.name);
             localStorage.setItem('tamda_last_active', Date.now());
             err.style.display = 'none';
+            document.getElementById('loginCode').value = '';
             checkAuth();
             showToast('مرحباً بك في بوابتك الخاصة');
         } else { 
@@ -240,6 +276,7 @@ window.authenticate = function() {
             sessionStartTime = Date.now();
             recordLoginStats(role);
             err.style.display = 'none';
+            document.getElementById('loginCode').value = '';
             checkAuth();
             showToast('تم تسجيل الدخول بنجاح');
         } else { 
@@ -249,170 +286,36 @@ window.authenticate = function() {
     }
 }
 
-window.logout = function(timeout = false) { 
+function logout(timeout = false) { 
     localStorage.removeItem('tamda_auth');
     localStorage.removeItem('tamda_role');
     localStorage.removeItem('tamda_counter');
     localStorage.removeItem('tamda_subname');
-    if(timeout) alert("تم تسجيل الخروج تلقائياً لمرور 15 دقيقة دون نشاط لحماية البيانات.");
+    if(timeout === true) alert("تم تسجيل الخروج تلقائياً لمرور 15 دقيقة دون نشاط لحماية البيانات.");
     location.reload(); 
 }
 
-// ==========================================
-// الصندوق المالي للجمعية (الرصيد الأوتوماتيكي واليدوي)
-// ==========================================
-window.processAutoMonthlyCapital = function() {
+function recordLoginStats(role) {
+    if(role === 'subscriber') return;
     let currentMonth = new Date().toISOString().slice(0, 7);
-    let allPastMonths = new Set();
-    transactionsList.forEach(t => { if(t.month && t.month < currentMonth) allPastMonths.add(t.month); });
-    donationsList.forEach(d => { if(d.month && d.month < currentMonth) allPastMonths.add(d.month); });
-    
-    allPastMonths.forEach(async (monthStr) => {
-        let alreadyClosed = capitalLedger.some(c => c.type === 'auto_month' && c.targetMonth === monthStr);
-        if(!alreadyClosed) {
-            let mIncome = 0, mExpense = 0, mDonations = 0;
-            transactionsList.filter(t => t.month === monthStr).forEach(t => {
-                if(t.type === 'income') mIncome += Number(t.amount); else mExpense += Number(t.amount);
-            });
-            donationsList.filter(d => d.month === monthStr).forEach(d => { mDonations += Number(d.amount); });
-            
-            let netAmount = (mIncome + mDonations) - mExpense;
-            
-            let ledgerEntry = {
-                firestoreId: 'local_cap_' + Date.now() + Math.random(),
-                date: new Date().toLocaleDateString('ar-MA'),
-                targetMonth: monthStr, type: 'auto_month', amount: netAmount,
-                desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString()
-            };
-            
-            capitalLedger.push(ledgerEntry);
-            saveLocalData();
-            if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry);
-            else queueOfflineAction('add_capital', ledgerEntry);
-        }
-    });
+    let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
+    if(!allActivity[currentMonth]) allActivity[currentMonth] = {};
+    if(!allActivity[currentMonth][role]) allActivity[currentMonth][role] = { logins: 0, minutes: 0 };
+    allActivity[currentMonth][role].logins += 1;
+    localStorage.setItem('tamda_member_activity', JSON.stringify(allActivity));
 }
 
-window.addManualCapital = async function() {
-    let amtStr = prompt("أدخل المبلغ المراد إضافته للصندوق (بالدرهم):");
-    if(!amtStr) return;
-    let amount = parseFloat(amtStr);
-    if(isNaN(amount) || amount <= 0) return showToast("مبلغ غير صحيح");
-    
-    let desc = prompt("أدخل سبب أو مصدر هذا المبلغ:", "إضافة يدوية للرصيد");
-    if(!desc) desc = "إضافة يدوية للرصيد";
-    
-    let ledgerEntry = {
-        firestoreId: 'local_cap_' + Date.now(),
-        date: new Date().toLocaleDateString('ar-MA'),
-        targetMonth: new Date().toISOString().slice(0, 7),
-        type: 'manual', amount: amount, desc: desc,
-        timestamp: new Date().toISOString()
-    };
-    capitalLedger.push(ledgerEntry);
-    saveLocalData();
-    if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry);
-    else queueOfflineAction('add_capital', ledgerEntry);
-    
-    renderCapital();
-    showToast("تم إضافة المبلغ للصندوق بنجاح");
-}
-
-window.renderCapital = function() {
-    const container = document.getElementById('capitalLedgerContainer');
-    if(!container) return;
-    let totalCap = 0;
-    container.innerHTML = '';
-    
-    capitalLedger.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(item => {
-        totalCap += Number(item.amount);
-        let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
-        container.innerHTML += `
-            <div class="list-item" style="border-right-color: ${color}">
-                <div class="list-info">
-                    <strong style="color: ${color}">${item.amount} درهم</strong>
-                    <span>${item.desc} | التاريخ: ${item.date}</span>
-                </div>
-            </div>
-        `;
-    });
-    
-    if(capitalLedger.length === 0) container.innerHTML = '<p>لا توجد مبالغ في الصندوق.</p>';
-    if(document.getElementById('mainCapitalAmount')) document.getElementById('mainCapitalAmount').textContent = totalCap + " درهم";
-}
-
-// ==========================================
-// إدارة قارئ PDF (تم تحويله للفتح المباشر)
-// ==========================================
-window.uploadFinancialPDF = function() {
-    const fileInput = document.getElementById('pdfReportFile');
-    const titleInput = document.getElementById('pdfReportTitle');
-    if(!fileInput.files || fileInput.files.length === 0) return showToast('اختر ملف PDF');
-    let file = fileInput.files[0]; let title = titleInput.value.trim() || file.name;
-    let reader = new FileReader();
-    reader.onload = function(e) {
-        let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-        reports.push({ title: title, data: e.target.result, date: new Date().toLocaleDateString('ar-MA') });
-        localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports));
-        fileInput.value = ''; titleInput.value = ''; showToast('تم رفع الوثيقة بنجاح!'); renderPDFReportsList();
-    };
-    reader.readAsDataURL(file);
-};
-
-window.renderPDFReportsList = function() {
-    const container = document.getElementById('pdfReportsContainer');
-    if(!container) return;
-    let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-    container.innerHTML = '';
-    if(reports.length === 0) { container.innerHTML = '<p style="color:#666;">لا توجد وثائق مرفوعة.</p>'; return; }
-    reports.forEach((rep, idx) => {
-        container.innerHTML += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
-            <div><strong>${rep.title}</strong><span style="font-size:0.8rem; color:#666;">تاريخ: ${rep.date}</span></div>
-            <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                <button class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem;" onclick="viewPDF(${idx})">👁️ عرض</button>
-                <button class="action-btn" onclick="deletePDFReport(${idx})">حذف</button>
-            </div>
-        </div>`;
-    });
-};
-
-window.viewPDF = function(index) {
-    let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-    if (reports[index]) {
-        try {
-            // تحويل Base64 إلى Blob ليعمل بشكل سليم في جميع الهواتف
-            let base64Data = reports[index].data;
-            let arr = base64Data.split(','), mime = arr[0].match(/:(.*?);/)[1];
-            let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-            while(n--){ u8arr[n] = bstr.charCodeAt(n); }
-            let blob = new Blob([u8arr], {type: mime});
-            let url = URL.createObjectURL(blob);
-            // فتح الملف باستخدام تطبيق قراءة الـ PDF الأساسي للهاتف 
-            window.open(url, '_blank');
-        } catch(e) {
-            showToast("خطأ في قراءة الملف. حاول رفعه مجدداً.");
-        }
-    }
-};
-
-window.deletePDFReport = function(index) {
-    if(confirm('حذف هذه الوثيقة؟')) {
-        let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-        reports.splice(index, 1); localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports));
-        renderPDFReportsList(); showToast('تم الحذف');
-    }
-};
-
-// باقي الدوال (كما هي تعمل بشكل سليم)...
-window.toggleSidebar = function() { 
+function toggleSidebar() { 
     if (sidebar) sidebar.classList.toggle('active'); 
     if (overlay) overlay.classList.toggle('active'); 
 }
-window.showToast = function(message) {
+
+function showToast(message) {
     if(!toast) return; toast.textContent = message; toast.classList.add('show');
     setTimeout(() => { toast.classList.remove('show'); }, 2500);
 }
-window.navigateTo = function(pageName) {
+
+function navigateTo(pageName) {
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
@@ -433,20 +336,37 @@ window.navigateTo = function(pageName) {
         if(pageName === '👤 فواتيري وطلباتي') renderSubPortalBills();
     }
 }
-window.printDonations = function() {
+
+// ================== باقي دوال التسيير ==================
+
+function printDonations() {
     document.body.classList.add('print-mode-donations'); window.print();
     setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500);
 }
 
-// === إدارة المنخرطين ونظام البوابة ===
-window.saveSubscriber = async function() {
+function renderMemberActivityStats() {
+    const container = document.getElementById('standaloneMemberActivity'); if(!container) return;
+    let currentMonth = new Date().toISOString().slice(0, 7);
+    let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
+    let monthData = allActivity[currentMonth] || {};
+    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">`;
+    for(let r in roleNames) {
+        if(r === 'subscriber') continue;
+        let stats = monthData[r] || { logins: 0, minutes: 0 };
+        let hours = (stats.minutes / 60).toFixed(1);
+        html += `<div class="list-item"><div class="list-info"><strong>${roleNames[r]}</strong><span>تسجيلات الدخول: <strong>${stats.logins}</strong> مرة | ساعات العمل: <strong class="text-success">${hours} ساعة</strong></span></div></div>`;
+    }
+    html += `</div>`; container.innerHTML = html;
+}
+
+// -- المنخرطين --
+async function saveSubscriber() {
     const editingId = document.getElementById('editingSubId').value;
     const counter = document.getElementById('newSubCounter').value.trim();
     const name = document.getElementById('newSubName').value.trim();
     const phone = document.getElementById('newSubPhone').value.trim();
     const loc = document.getElementById('newSubLocation').value.trim();
     if (!counter || !name) { showToast('المرجو إدخال رقم العداد والاسم'); return; }
-    
     try {
         if (editingId) {
             let sub = subscribers.find(s => s.firestoreId === editingId);
@@ -463,21 +383,20 @@ window.saveSubscriber = async function() {
         }
         saveLocalData(); renderSubscribers();
     } catch (e) { showToast('تم الحفظ محلياً'); }
-};
-window.editSubscriber = function(firestoreId) {
+}
+function editSubscriber(firestoreId) {
     const sub = subscribers.find(s => s.firestoreId === firestoreId); if (!sub) return;
     document.getElementById('editingSubId').value = sub.firestoreId; document.getElementById('newSubCounter').value = sub.counter; document.getElementById('newSubName').value = sub.name; document.getElementById('newSubPhone').value = sub.phone || ''; document.getElementById('newSubLocation').value = sub.location || ''; document.getElementById('subFormTitle').textContent = '✏️ تعديل بيانات المشترك'; document.getElementById('subSaveBtn').textContent = '💾 تحديث البيانات'; document.getElementById('subCancelBtn').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-window.resetSubForm = function() {
+}
+function resetSubForm() {
     document.getElementById('editingSubId').value = ''; document.getElementById('newSubCounter').value = ''; document.getElementById('newSubName').value = ''; document.getElementById('newSubPhone').value = ''; document.getElementById('newSubLocation').value = ''; document.getElementById('subFormTitle').textContent = '➕ إضافة مشترك جديد'; document.getElementById('subSaveBtn').textContent = '💾 حفظ المشترك'; document.getElementById('subCancelBtn').style.display = 'none';
-};
-window.renderSubscribers = function() {
+}
+function renderSubscribers() {
     const container = document.getElementById('subscribersListContainer'); if(!container) return;
     const searchTerm = document.getElementById('searchSub').value.toLowerCase(); container.innerHTML = '';
     let filtered = subscribers.filter(s => s.name.toLowerCase().includes(searchTerm) || s.counter.toString().includes(searchTerm));
     document.getElementById('subListCount').textContent = filtered.length; if(document.getElementById('dashSubCount')) document.getElementById('dashSubCount').textContent = subscribers.length;
     let totalDebts = 0; subscribers.forEach(s => totalDebts += Number(s.debtAmount || 0)); if(document.getElementById('dashDebts')) document.getElementById('dashDebts').textContent = totalDebts + ' درهم';
-
     filtered.forEach((sub) => {
         const div = document.createElement('div'); div.className = 'list-item'; div.style.flexDirection = 'column'; div.style.alignItems = 'stretch';
         let pinBtnText = sub.pin ? "🔄 إعادة إرسال الكود للمشترك" : "🔑 توليد وإرسال كود الدخول";
@@ -495,19 +414,21 @@ window.renderSubscribers = function() {
         `;
         container.appendChild(div);
     });
-};
-window.generateAndSendPIN = async function(firestoreId) {
+}
+async function generateAndSendPIN(firestoreId) {
     let sub = subscribers.find(s => s.firestoreId === firestoreId); if (!sub) return;
     if (!sub.phone) { showToast('رقم هاتف المنخرط غير مسجل! قم بإضافة رقمه أولاً بتعديل ملفه.'); return; }
     let pin = Math.floor(1000 + Math.random() * 9000).toString(); sub.pin = pin; saveLocalData();
     if(navigator.onLine && !firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { pin: pin }).catch(()=>{});
     let msg = `مرحباً السيد(ة) ${sub.name}،\nتم تفعيل حسابك في بوابة المشتركين لتطبيق تسيير ماء تامدة.\n\n👤 اسم المستخدم (رقم العداد): ${sub.counter}\n🔑 الرمز السري: ${pin}\n\nيمكنك الآن الدخول للاطلاع على فواتيرك وتقديم طلباتك عبر التطبيق.`;
     window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank'); showToast('تم توليد الكود وفتح واتساب للإرسال'); renderSubscribers();
-};
-window.deleteSubscriber = async function(id) {
+}
+async function deleteSubscriber(id) {
     if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { subscribers = subscribers.filter(s => s.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "subscribers", id)); renderSubscribers(); showToast('تم حذف المشترك بنجاح'); }
-};
-window.renderSubPortalBills = function() {
+}
+
+// -- بوابة المنخرط --
+function renderSubPortalBills() {
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname'); if(!subCounter) return;
     document.getElementById('portalSubName').textContent = subName; document.getElementById('portalSubCounter').textContent = subCounter;
     const container = document.getElementById('portalBillsContainer'); container.innerHTML = '';
@@ -517,15 +438,15 @@ window.renderSubPortalBills = function() {
         let isPaid = b.status === 'خالصة'; let color = isPaid ? 'var(--accent-green)' : 'var(--danger-red)';
         container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">شهر: ${b.month} | المبلغ: ${b.total} درهم</strong><span>الاستهلاك: ${b.consumption} m³ | الوضعية: <strong style="color: ${color}">${b.status}</strong> ${b.isExempt ? '(إعفاء)' : ''}</span></div></div>`;
     });
-};
-window.submitComplaint = async function() {
+}
+async function submitComplaint() {
     const text = document.getElementById('complaintText').value.trim(); if(!text) { showToast('المرجو كتابة الشكاية أو الطلب أولاً'); return; }
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname');
     let comp = { firestoreId: 'local_' + Date.now(), counter: subCounter, name: subName, text: text, date: new Date().toLocaleDateString('ar-MA'), status: 'جديدة' };
     complaintsList.push(comp); saveLocalData(); if(navigator.onLine) { await addDoc(collection(db, "complaints"), comp); } else { queueOfflineAction('add_complaint', comp); }
     document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
-};
-window.renderAdminComplaints = function() {
+}
+function renderAdminComplaints() {
     const container = document.getElementById('complaintsListContainer'); if(!container) return; container.innerHTML = '';
     if(complaintsList.length === 0) { container.innerHTML = '<p class="text-success">لا توجد شكايات أو طلبات واردة حالياً.</p>'; return; }
     complaintsList.slice().reverse().forEach(c => {
@@ -533,26 +454,141 @@ window.renderAdminComplaints = function() {
         div.innerHTML = `<div class="list-info"><strong>من: ${c.name} (عداد: ${c.counter}) - <span style="font-size:0.8rem; color:#666;">${c.date}</span></strong><div style="font-size: 1rem; color: #333; margin:10px 0; padding:10px; background:#fff; border-radius:5px; border:1px solid #ddd; white-space: pre-wrap;">${c.text}</div><span style="color: ${isNew ? 'var(--danger-red)' : 'var(--accent-green)'}; font-weight:bold;">الحالة: ${c.status}</span></div><div style="display:flex; flex-direction:column; gap:5px; min-width: 120px;">${isNew ? `<button class="pay-btn" style="margin-top:0;" onclick="markComplaintRead('${c.firestoreId}')">✔️ تمت المعالجة</button>` : ''}<button class="action-btn" onclick="deleteComplaint('${c.firestoreId}')">🗑️ حذف</button></div>`;
         container.appendChild(div);
     });
-};
-window.markComplaintRead = async function(id) { let comp = complaintsList.find(c => c.firestoreId === id); if(comp) { comp.status = 'تمت المعالجة'; saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await updateDoc(doc(db, "complaints", id), { status: 'تمت المعالجة' }); renderAdminComplaints(); } };
-window.deleteComplaint = async function(id) { if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "complaints", id)); renderAdminComplaints(); } };
-window.saveDonation = async function() { const month = document.getElementById('donationMonth').value; const name = document.getElementById('donationName').value.trim(); const amount = parseFloat(document.getElementById('donationAmount').value) || 0; if (amount <= 0 || !month || !name) return showToast('أدخل البيانات كاملة'); let donObj = { firestoreId: 'local_' + Date.now(), month, name, amount, timestamp: new Date().toISOString() }; donationsList.push(donObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) await addDoc(collection(db, "donations"), donObj); else queueOfflineAction('add_donation', donObj); document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); };
-window.renderDonations = function() { const container = document.getElementById('donationsListContainer'); if(!container) return; container.innerHTML = ''; if(donationsList.length === 0) { container.innerHTML = '<p>لا توجد تبرعات مسجلة بعد.</p>'; return; } let tableHTML = `<table class="archive-table"><thead><tr><th>تاريخ التبرع</th><th>اسم المتبرع</th><th>المبلغ (درهم)</th><th class="no-print">إجراء</th></tr></thead><tbody>`; donationsList.slice().reverse().forEach((d) => { tableHTML += `<tr><td>${d.month}</td><td>السيد(ة) ${d.name}</td><td style="color:#d81b60; font-weight:bold;">${d.amount}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDonation('${d.firestoreId}')">حذف</button></td></tr>`; }); tableHTML += `</tbody></table>`; container.innerHTML = tableHTML; };
-window.deleteDonation = async function(id) { if(confirm('هل تريد حذف التبرع؟')) { donationsList = donationsList.filter(d => d.firestoreId !== id); recalculateFinancials(); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "donations", id)); renderDonations(); updateFinancialDashboard(); } };
-window.updateFinancialDashboard = function() { const netBalance = totalIncome - totalExpense; const normalIncome = totalIncome - totalDonationsIncome; if(document.getElementById('normalIncomeReport')) document.getElementById('normalIncomeReport').textContent = normalIncome + ' درهم'; if(document.getElementById('donationsIncomeReport')) document.getElementById('donationsIncomeReport').textContent = totalDonationsIncome + ' درهم'; if(document.getElementById('totalIncomeReport')) document.getElementById('totalIncomeReport').textContent = totalIncome + ' درهم'; if(document.getElementById('totalExpenseReport')) document.getElementById('totalExpenseReport').textContent = totalExpense + ' درهم'; };
-window.saveTransaction = async function() { const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); let transactionObj = { firestoreId: 'local_' + Date.now(), month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transactionObj); archiveFinance.push(transactionObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), transactionObj); await addDoc(collection(db, "archive_finance"), transactionObj); } else { queueOfflineAction('add_transaction', transactionObj); } document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; showToast('تم تسجيل العملية المالية'); renderTransactions(); updateFinancialDashboard(); };
-window.renderTransactions = function() { const container = document.getElementById('transactionsListContainer'); if(!container) return; container.innerHTML = ''; if(transactionsList.length === 0) { container.innerHTML = '<p>لا توجد عمليات مسجلة.</p>'; return; } transactionsList.slice().reverse().forEach((t) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button>`; container.appendChild(div); }); };
-window.deleteTransaction = async function(firestoreId) { if(confirm('هل تريد حذف هذه العملية المالية؟')) { transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); recalculateFinancials(); saveLocalData(); if(navigator.onLine && !firestoreId.startsWith('local_')) await deleteDoc(doc(db, "transactions", firestoreId)); renderTransactions(); updateFinancialDashboard(); } };
-window.calculateBill = function() { const counterNumInput = document.getElementById('counterNum').value.trim(); const subName = document.getElementById('subscriberName').value || 'غير محدد'; const billingMonth = document.getElementById('billingMonth').value || 'غير محدد'; const prev = parseFloat(document.getElementById('prevReading').value) || 0; const curr = parseFloat(document.getElementById('currReading').value) || 0; const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0; const tariffSystem = document.getElementById('tariffSystem').value; const isExempt = document.getElementById('exemptionCheck').checked; const alertBox = document.getElementById('smartAlertBox'); if (!counterNumInput) return; if (curr < prev) { showToast('القراءة الحالية أقل من السابقة!'); return; } const consumption = curr - prev; currentConsumptionData = consumption; let alertMessages = []; let currentCounterNum = parseInt(counterNumInput); let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); if (prevCounterExists || nextCounterExists) alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور.'); let sub = subscribers.find(s => s.counter == counterNumInput); let historicAvg = sub ? (sub.avgConsumption || 25) : 25; if (historicAvg > 20 && consumption < 10) alertMessages.push(`⚠️ تنبيه: هذا المنخرط يستهلك عادة أكثر من 20، وسجلت ${consumption} فقط!`); if (alertMessages.length > 0) { alertBox.style.display = 'block'; alertBox.innerHTML = alertMessages.join('<br>'); } else { alertBox.style.display = 'none'; alertBox.innerHTML = ''; } currentT1 = 0; currentT2 = 0; currentT3 = 0; let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; if (tariffSystem === 'current') { maintenance = appSettings.maintenance; if (consumption <= 15) { currentT1 = consumption; } else if (consumption <= 20) { currentT1 = 15; currentT2 = consumption - 15; } else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; } else { maintenance = 15; if (consumption <= 20) { currentT1 = consumption; } else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } else { currentT1 = 20; currentT2 = 10; currentT3 = consumption - 30; } t1_cost = currentT1 * 3; t2_cost = currentT2 * 5; t3_cost = currentT3 * 7; } const consumptionCost = t1_cost + t2_cost + t3_cost; document.getElementById('row-t1').style.display = currentT1 > 0 ? 'flex' : 'none'; document.getElementById('t1-val').textContent = `${currentT1} m³ = ${t1_cost} درهم`; document.getElementById('row-t2').style.display = currentT2 > 0 ? 'flex' : 'none'; document.getElementById('t2-val').textContent = `${currentT2} m³ = ${t2_cost} درهم`; document.getElementById('row-t3').style.display = currentT3 > 0 ? 'flex' : 'none'; document.getElementById('t3-val').textContent = `${currentT3} m³ = ${t3_cost} درهم`; let penaltyCost = (delayMonths >= 2) ? appSettings.penalty : 0; if (penaltyCost > 0) { document.getElementById('penaltyRow').style.display = 'flex'; document.getElementById('printPenalty').textContent = penaltyCost + ' درهم'; } else { document.getElementById('penaltyRow').style.display = 'none'; } currentBillTotal = isExempt ? 0 : (consumptionCost + maintenance + penaltyCost); if(isExempt) document.getElementById('exemptionNotice').style.display = 'flex'; else document.getElementById('exemptionNotice').style.display = 'none'; document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; };
-window.saveBill = async function(isPaid) { if(currentBillTotal >= 0) { const counterInput = document.getElementById('counterNum').value.trim(); const subNameStr = document.getElementById('subscriberName').value || 'غير محدد'; const curr = parseFloat(document.getElementById('currReading').value) || 0; const currentMonth = document.getElementById('billingMonth').value; const isExempt = document.getElementById('exemptionCheck').checked; const sub = subscribers.find(s => s.counter == counterInput); let billArchiveObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; try { archiveBills.push(billArchiveObj); if (sub) { let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1); let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal); sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt; sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData)); if(navigator.onLine && !sub.firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }).catch(() => {}); } if (isPaid && currentBillTotal > 0) { let transObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transObj); archiveFinance.push(transObj); recalculateFinancials(); if(navigator.onLine) addDoc(collection(db, "transactions"), transObj); } saveLocalData(); if (navigator.onLine) await addDoc(collection(db, "archive_bills"), billArchiveObj); else queueOfflineAction('add_bill', billArchiveObj); showToast('تم حفظ الفاتورة بنجاح'); currentBillTotal = 0; document.getElementById('billResult').style.display = 'none'; document.getElementById('currReading').value = ''; document.getElementById('exemptionCheck').checked = false; document.getElementById('smartAlertBox').style.display = 'none'; let nextCounter = parseInt(counterInput); if (!isNaN(nextCounter)) document.getElementById('counterNum').value = nextCounter + 1; autoFillSubscriber(); } catch (e) { showToast('فشل الحفظ'); } } else { showToast('يرجى حساب الفاتورة أولاً'); } };
-window.sendWhatsAppNotification = function() { const counterInput = document.getElementById('counterNum').value.trim(); const currentMonth = document.getElementById('billingMonth').value || 'الحالي'; const sub = subscribers.find(s => s.counter == counterInput); if (!sub || !sub.phone) return showToast('رقم هاتف المشترك غير مسجل!'); let message = `مرحباً السيد(ة) ${sub.name}،\nفاتورة استهلاك ماء الشرب لشهر ${currentMonth} هي: ${currentBillTotal} درهم.\nالمرجو المبادرة بالأداء وشكراً.`; window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(message)}`, '_blank'); };
+}
+async function markComplaintRead(id) { let comp = complaintsList.find(c => c.firestoreId === id); if(comp) { comp.status = 'تمت المعالجة'; saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await updateDoc(doc(db, "complaints", id), { status: 'تمت المعالجة' }); renderAdminComplaints(); } }
+async function deleteComplaint(id) { if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "complaints", id)); renderAdminComplaints(); } }
+
+// -- المالية والصندوق --
+function processAutoMonthlyCapital() {
+    let currentMonth = new Date().toISOString().slice(0, 7);
+    let allPastMonths = new Set();
+    transactionsList.forEach(t => { if(t.month && t.month < currentMonth) allPastMonths.add(t.month); });
+    donationsList.forEach(d => { if(d.month && d.month < currentMonth) allPastMonths.add(d.month); });
+    
+    allPastMonths.forEach(async (monthStr) => {
+        let alreadyClosed = capitalLedger.some(c => c.type === 'auto_month' && c.targetMonth === monthStr);
+        if(!alreadyClosed) {
+            let mIncome = 0, mExpense = 0, mDonations = 0;
+            transactionsList.filter(t => t.month === monthStr).forEach(t => {
+                if(t.type === 'income') mIncome += Number(t.amount); else mExpense += Number(t.amount);
+            });
+            donationsList.filter(d => d.month === monthStr).forEach(d => { mDonations += Number(d.amount); });
+            let netAmount = (mIncome + mDonations) - mExpense;
+            
+            let ledgerEntry = {
+                firestoreId: 'local_cap_' + Date.now() + Math.random(), date: new Date().toLocaleDateString('ar-MA'),
+                targetMonth: monthStr, type: 'auto_month', amount: netAmount,
+                desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString()
+            };
+            capitalLedger.push(ledgerEntry); saveLocalData();
+            if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry); else queueOfflineAction('add_capital', ledgerEntry);
+        }
+    });
+}
+async function addManualCapital() {
+    let amtStr = prompt("أدخل المبلغ المراد إضافته للصندوق (بالدرهم):"); if(!amtStr) return;
+    let amount = parseFloat(amtStr); if(isNaN(amount) || amount <= 0) return showToast("مبلغ غير صحيح");
+    let desc = prompt("أدخل سبب أو مصدر هذا المبلغ:", "إضافة يدوية للرصيد"); if(!desc) desc = "إضافة يدوية للرصيد";
+    let ledgerEntry = { firestoreId: 'local_cap_' + Date.now(), date: new Date().toLocaleDateString('ar-MA'), targetMonth: new Date().toISOString().slice(0, 7), type: 'manual', amount: amount, desc: desc, timestamp: new Date().toISOString() };
+    capitalLedger.push(ledgerEntry); saveLocalData();
+    if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry); else queueOfflineAction('add_capital', ledgerEntry);
+    renderCapital(); showToast("تم إضافة المبلغ للصندوق بنجاح");
+}
+function renderCapital() {
+    const container = document.getElementById('capitalLedgerContainer'); if(!container) return;
+    let totalCap = 0; container.innerHTML = '';
+    capitalLedger.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(item => {
+        totalCap += Number(item.amount); let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
+        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">${item.amount} درهم</strong><span>${item.desc} | التاريخ: ${item.date}</span></div></div>`;
+    });
+    if(capitalLedger.length === 0) container.innerHTML = '<p>لا توجد مبالغ في الصندوق.</p>';
+    if(document.getElementById('mainCapitalAmount')) document.getElementById('mainCapitalAmount').textContent = totalCap + " درهم";
+}
+async function saveDonation() { const month = document.getElementById('donationMonth').value; const name = document.getElementById('donationName').value.trim(); const amount = parseFloat(document.getElementById('donationAmount').value) || 0; if (amount <= 0 || !month || !name) return showToast('أدخل البيانات كاملة'); let donObj = { firestoreId: 'local_' + Date.now(), month, name, amount, timestamp: new Date().toISOString() }; donationsList.push(donObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) await addDoc(collection(db, "donations"), donObj); else queueOfflineAction('add_donation', donObj); document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); }
+function renderDonations() { const container = document.getElementById('donationsListContainer'); if(!container) return; container.innerHTML = ''; if(donationsList.length === 0) { container.innerHTML = '<p>لا توجد تبرعات مسجلة بعد.</p>'; return; } let tableHTML = `<table class="archive-table"><thead><tr><th>تاريخ التبرع</th><th>اسم المتبرع</th><th>المبلغ (درهم)</th><th class="no-print">إجراء</th></tr></thead><tbody>`; donationsList.slice().reverse().forEach((d) => { tableHTML += `<tr><td>${d.month}</td><td>السيد(ة) ${d.name}</td><td style="color:#d81b60; font-weight:bold;">${d.amount}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDonation('${d.firestoreId}')">حذف</button></td></tr>`; }); tableHTML += `</tbody></table>`; container.innerHTML = tableHTML; }
+async function deleteDonation(id) { if(confirm('هل تريد حذف التبرع؟')) { donationsList = donationsList.filter(d => d.firestoreId !== id); recalculateFinancials(); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "donations", id)); renderDonations(); updateFinancialDashboard(); } }
+function updateFinancialDashboard() { const netBalance = totalIncome - totalExpense; const normalIncome = totalIncome - totalDonationsIncome; if(document.getElementById('normalIncomeReport')) document.getElementById('normalIncomeReport').textContent = normalIncome + ' درهم'; if(document.getElementById('donationsIncomeReport')) document.getElementById('donationsIncomeReport').textContent = totalDonationsIncome + ' درهم'; if(document.getElementById('totalIncomeReport')) document.getElementById('totalIncomeReport').textContent = totalIncome + ' درهم'; if(document.getElementById('totalExpenseReport')) document.getElementById('totalExpenseReport').textContent = totalExpense + ' درهم'; }
+async function saveTransaction() { const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); let transactionObj = { firestoreId: 'local_' + Date.now(), month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transactionObj); archiveFinance.push(transactionObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), transactionObj); await addDoc(collection(db, "archive_finance"), transactionObj); } else { queueOfflineAction('add_transaction', transactionObj); } document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; showToast('تم تسجيل العملية المالية'); renderTransactions(); updateFinancialDashboard(); }
+function renderTransactions() { const container = document.getElementById('transactionsListContainer'); if(!container) return; container.innerHTML = ''; if(transactionsList.length === 0) { container.innerHTML = '<p>لا توجد عمليات مسجلة.</p>'; return; } transactionsList.slice().reverse().forEach((t) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button>`; container.appendChild(div); }); }
+async function deleteTransaction(firestoreId) { if(confirm('هل تريد حذف هذه العملية المالية؟')) { transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); recalculateFinancials(); saveLocalData(); if(navigator.onLine && !firestoreId.startsWith('local_')) await deleteDoc(doc(db, "transactions", firestoreId)); renderTransactions(); updateFinancialDashboard(); } }
+
+// -- القانون والتقارير PDF --
+function saveBylaws() {
+    let text = document.getElementById('bylawInput').value;
+    localStorage.setItem('tamda_bylaws', text);
+    document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.';
+    showToast('تم حفظ القانون الأساسي');
+}
+function uploadFinancialPDF() { const fileInput = document.getElementById('pdfReportFile'); const titleInput = document.getElementById('pdfReportTitle'); if(!fileInput.files || fileInput.files.length === 0) return showToast('اختر ملف PDF'); let file = fileInput.files[0]; let title = titleInput.value.trim() || file.name; let reader = new FileReader(); reader.onload = function(e) { let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || []; reports.push({ title: title, data: e.target.result, date: new Date().toLocaleDateString('ar-MA') }); localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports)); fileInput.value = ''; titleInput.value = ''; showToast('تم رفع الوثيقة بنجاح!'); renderPDFReportsList(); }; reader.readAsDataURL(file); }
+function renderPDFReportsList() { const container = document.getElementById('pdfReportsContainer'); if(!container) return; let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || []; container.innerHTML = ''; if(reports.length === 0) { container.innerHTML = '<p style="color:#666;">لا توجد وثائق مرفوعة.</p>'; return; } reports.forEach((rep, idx) => { container.innerHTML += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;"><div><strong>${rep.title}</strong><span style="font-size:0.8rem; color:#666;">تاريخ: ${rep.date}</span></div><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem;" onclick="viewPDF(${idx})">👁️ عرض</button><button class="action-btn" onclick="deletePDFReport(${idx})">حذف</button></div></div>`; }); }
+function viewPDF(index) { let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || []; if (reports[index]) { try { let base64Data = reports[index].data; let arr = base64Data.split(','), mime = arr[0].match(/:(.*?);/)[1]; let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n); while(n--){ u8arr[n] = bstr.charCodeAt(n); } let blob = new Blob([u8arr], {type: mime}); let url = URL.createObjectURL(blob); window.open(url, '_blank'); } catch(e) { showToast("خطأ في قراءة الملف."); } } }
+function closePDFModal() { document.getElementById('pdfModal').style.display = 'none'; document.getElementById('pdfViewerFrame').src = ''; }
+function deletePDFReport(index) { if(confirm('حذف هذه الوثيقة؟')) { let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || []; reports.splice(index, 1); localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports)); renderPDFReportsList(); showToast('تم الحذف'); } }
+
+// -- الفوترة --
+function calculateBill() { const counterNumInput = document.getElementById('counterNum').value.trim(); const subName = document.getElementById('subscriberName').value || 'غير محدد'; const billingMonth = document.getElementById('billingMonth').value || 'غير محدد'; const prev = parseFloat(document.getElementById('prevReading').value) || 0; const curr = parseFloat(document.getElementById('currReading').value) || 0; const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0; const tariffSystem = document.getElementById('tariffSystem').value; const isExempt = document.getElementById('exemptionCheck').checked; const alertBox = document.getElementById('smartAlertBox'); if (!counterNumInput) return; if (curr < prev) { showToast('القراءة الحالية أقل من السابقة!'); return; } const consumption = curr - prev; currentConsumptionData = consumption; let alertMessages = []; let currentCounterNum = parseInt(counterNumInput); let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); if (prevCounterExists || nextCounterExists) alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور.'); let sub = subscribers.find(s => s.counter == counterNumInput); let historicAvg = sub ? (sub.avgConsumption || 25) : 25; if (historicAvg > 20 && consumption < 10) alertMessages.push(`⚠️ تنبيه: هذا المنخرط يستهلك عادة أكثر من 20، وسجلت ${consumption} فقط!`); if (alertMessages.length > 0) { alertBox.style.display = 'block'; alertBox.innerHTML = alertMessages.join('<br>'); } else { alertBox.style.display = 'none'; alertBox.innerHTML = ''; } currentT1 = 0; currentT2 = 0; currentT3 = 0; let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; if (tariffSystem === 'current') { maintenance = appSettings.maintenance; if (consumption <= 15) { currentT1 = consumption; } else if (consumption <= 20) { currentT1 = 15; currentT2 = consumption - 15; } else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; } else { maintenance = 15; if (consumption <= 20) { currentT1 = consumption; } else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } else { currentT1 = 20; currentT2 = 10; currentT3 = consumption - 30; } t1_cost = currentT1 * 3; t2_cost = currentT2 * 5; t3_cost = currentT3 * 7; } const consumptionCost = t1_cost + t2_cost + t3_cost; document.getElementById('row-t1').style.display = currentT1 > 0 ? 'flex' : 'none'; document.getElementById('t1-val').textContent = `${currentT1} m³ = ${t1_cost} درهم`; document.getElementById('row-t2').style.display = currentT2 > 0 ? 'flex' : 'none'; document.getElementById('t2-val').textContent = `${currentT2} m³ = ${t2_cost} درهم`; document.getElementById('row-t3').style.display = currentT3 > 0 ? 'flex' : 'none'; document.getElementById('t3-val').textContent = `${currentT3} m³ = ${t3_cost} درهم`; let penaltyCost = (delayMonths >= 2) ? appSettings.penalty : 0; if (penaltyCost > 0) { document.getElementById('penaltyRow').style.display = 'flex'; document.getElementById('printPenalty').textContent = penaltyCost + ' درهم'; } else { document.getElementById('penaltyRow').style.display = 'none'; } currentBillTotal = isExempt ? 0 : (consumptionCost + maintenance + penaltyCost); if(isExempt) document.getElementById('exemptionNotice').style.display = 'flex'; else document.getElementById('exemptionNotice').style.display = 'none'; document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; }
+async function saveBill(isPaid) { if(currentBillTotal >= 0) { const counterInput = document.getElementById('counterNum').value.trim(); const subNameStr = document.getElementById('subscriberName').value || 'غير محدد'; const curr = parseFloat(document.getElementById('currReading').value) || 0; const currentMonth = document.getElementById('billingMonth').value; const isExempt = document.getElementById('exemptionCheck').checked; const sub = subscribers.find(s => s.counter == counterInput); let billArchiveObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; try { archiveBills.push(billArchiveObj); if (sub) { let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1); let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal); sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt; sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData)); if(navigator.onLine && !sub.firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }).catch(() => {}); } if (isPaid && currentBillTotal > 0) { let transObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transObj); archiveFinance.push(transObj); recalculateFinancials(); if(navigator.onLine) addDoc(collection(db, "transactions"), transObj); } saveLocalData(); if (navigator.onLine) await addDoc(collection(db, "archive_bills"), billArchiveObj); else queueOfflineAction('add_bill', billArchiveObj); showToast('تم حفظ الفاتورة بنجاح'); currentBillTotal = 0; document.getElementById('billResult').style.display = 'none'; document.getElementById('currReading').value = ''; document.getElementById('exemptionCheck').checked = false; document.getElementById('smartAlertBox').style.display = 'none'; let nextCounter = parseInt(counterInput); if (!isNaN(nextCounter)) document.getElementById('counterNum').value = nextCounter + 1; autoFillSubscriber(); } catch (e) { showToast('فشل الحفظ'); } } else { showToast('يرجى حساب الفاتورة أولاً'); } }
+function sendWhatsAppNotification() { const counterInput = document.getElementById('counterNum').value.trim(); const currentMonth = document.getElementById('billingMonth').value || 'الحالي'; const sub = subscribers.find(s => s.counter == counterInput); if (!sub || !sub.phone) return showToast('رقم هاتف المشترك غير مسجل!'); let message = `مرحباً السيد(ة) ${sub.name}،\nفاتورة استهلاك ماء الشرب لشهر ${currentMonth} هي: ${currentBillTotal} درهم.\nالمرجو المبادرة بالأداء وشكراً.`; window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(message)}`, '_blank'); }
 function getNextMonth(monthString) { if (!monthString) return ''; let parts = monthString.split('-'); if(parts.length < 2) return ''; let d = new Date(parseInt(parts[0]), parseInt(parts[1]), 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
-window.autoFillSubscriber = function() { const counterInput = document.getElementById('counterNum').value.trim(); const sub = subscribers.find(s => s.counter == counterInput); if (sub) { document.getElementById('subscriberName').value = sub.name; if(sub.lastBilledMonth) document.getElementById('billingMonth').value = getNextMonth(sub.lastBilledMonth); document.getElementById('prevReading').value = (sub.lastReading !== null) ? sub.lastReading : ''; document.getElementById('currReading').value = ''; document.getElementById('delayMonths').value = sub.delayMonths || 0; } else { document.getElementById('subscriberName').value = ''; document.getElementById('prevReading').value = ''; document.getElementById('currReading').value = ''; document.getElementById('delayMonths').value = 0; } calculateBill(); };
-window.enableEdit = function(elementId) { document.getElementById(elementId).focus(); showToast('تم فتح الحقل للتعديل'); };
-window.renderDebts = function() { const container = document.getElementById('debtsListContainer'); if(!container) return; container.innerHTML = ''; const debtors = subscribers.filter(s => Number(s.debtAmount) > 0); debtors.sort((a, b) => Number(a.counter) - Number(b.counter)); if(debtors.length === 0) { container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً.</p>'; return; } debtors.forEach((sub) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:var(--danger-red);">عداد (${sub.counter}): ${sub.name}</strong><span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span></div><div><button class="pay-btn" onclick="collectDebt('${sub.firestoreId}', ${sub.debtAmount}, '${sub.counter}', '${sub.name}')">💵 استخلاص</button></div>`; container.appendChild(div); }); };
-window.collectDebt = async function(firestoreId, amount, counter, name) { if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } let nowMonth = new Date().toISOString().slice(0, 7); let newTrans = { firestoreId: 'local_' + Date.now(), month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(newTrans); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), newTrans); if(!firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); } showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); } };
-window.renderArchive = function() { const container = document.getElementById('archiveContainer'); if(!container) return; container.innerHTML = ''; let allMonths = new Set(); archiveBills.forEach(b => allMonths.add(b.month)); archiveFinance.forEach(f => allMonths.add(f.month)); let sortedMonths = Array.from(allMonths).sort().reverse(); if(sortedMonths.length === 0) { container.innerHTML = '<p>لا توجد بيانات مسجلة.</p>'; return; } sortedMonths.forEach(month => { let monthBills = archiveBills.filter(b => b.month === month); let monthFinance = archiveFinance.filter(f => f.month === month); monthBills.sort((a, b) => Number(a.counter) - Number(b.counter)); let monthTotalWater = 0, monthTotalAmount = 0; monthBills.forEach(b => { monthTotalWater += Number(b.consumption || 0); monthTotalAmount += Number(b.total || 0); }); const box = document.createElement('div'); box.className = 'archive-month-box'; let html = `<div class="printable-archive"><h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px;"><span>📅 الأرشيف الشامل - شهر: ${month}</span></h4><div style="display:flex; gap:20px; margin-bottom:10px; font-size:0.95rem; background:var(--bg-light); padding:8px; border-radius:6px;"><span>الاستهلاك: <strong>${monthTotalWater} m³</strong></span><span>المبالغ المحصلة: <strong class="text-success">${monthTotalAmount} درهم</strong></span></div>`; if(monthBills.length > 0) { html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthBills.forEach(b => { html += `<tr><td>${b.counter}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية:</h5>`; if(monthFinance.length > 0) { html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthFinance.forEach(f => { html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } html += `</div>`; box.innerHTML = html; container.appendChild(box); }); };
-window.deleteArchiveBill = async function(id) { if(confirm('متأكد من الحذف؟')) { archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "archive_bills", id)); renderArchive(); } };
-window.deleteArchiveFinance = async function(id) { if(confirm('متأكد من الحذف؟')) { archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "archive_finance", id)); renderArchive(); } };
-window.toggleStatInputs = function() { const type = document.getElementById('statTypeSelect').value; document.getElementById('monthInputGroup').style.display = (type === 'monthly') ? 'block' : 'none'; document.getElementById('yearInputGroup').style.display = (type === 'yearly') ? 'block' : 'none'; renderAdvancedStats(); };
-window.renderAdvancedStats = function() { const container = document.getElementById('statsContainer'); if(!container) return; const type = document.getElementById('statTypeSelect').value; let filteredBills = []; let periodTitle = ''; if (type === 'monthly') { const monthSelect = document.getElementById('statsMonthSelect'); if(!monthSelect.value) { let now = new Date(); monthSelect.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'); } filteredBills = archiveBills.filter(b => b.month === monthSelect.value); periodTitle = `شهر: ${monthSelect.value}`; } else { const yearSelect = document.getElementById('statsYearSelect'); filteredBills = archiveBills.filter(b => b.month && b.month.startsWith(yearSelect.value)); periodTitle = `سنة: ${yearSelect.value}`; } if(filteredBills.length === 0) { container.innerHTML = `<p style="margin-top:15px; color:#666;">لا توجد بيانات لـ (${periodTitle}).</p>`; return; } let totalWater = 0, totalT1 = 0, totalT2 = 0, totalT3 = 0, maxConsumption = -1, topConsumer = '---'; filteredBills.forEach(b => { let cons = Number(b.consumption || 0); totalWater += cons; totalT1 += Number(b.t1 || 0); totalT2 += Number(b.t2 || 0); totalT3 += Number(b.t3 || 0); if(cons > maxConsumption) { maxConsumption = cons; topConsumer = `عداد (${b.counter}) ${b.name} (${cons} m³)`; } }); let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0; let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0; let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0; container.innerHTML = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;"><div class="stat-row"><span>الاستهلاك (${periodTitle}):</span><strong style="color:var(--primary-blue); font-size:1.2rem;">${totalWater} m³</strong></div><div class="stat-row"><span>الأكثر استهلاكاً:</span><strong class="text-danger">${topConsumer}</strong></div><h4 style="margin:10px 0 5px 0; color:var(--primary-blue);">📈 مبيانات الأشطر:</h4><div class="chart-container"><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الأول</span><span>${p1}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p1}%; background: var(--accent-green);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثاني</span><span>${p2}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p2}%; background: var(--secondary-cyan);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثالث</span><span>${p3}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p3}%; background: var(--danger-red);"></div></div></div></div></div>`; };
+function autoFillSubscriber() { const counterInput = document.getElementById('counterNum').value.trim(); const sub = subscribers.find(s => s.counter == counterInput); if (sub) { document.getElementById('subscriberName').value = sub.name; if(sub.lastBilledMonth) document.getElementById('billingMonth').value = getNextMonth(sub.lastBilledMonth); document.getElementById('prevReading').value = (sub.lastReading !== null) ? sub.lastReading : ''; document.getElementById('currReading').value = ''; document.getElementById('delayMonths').value = sub.delayMonths || 0; } else { document.getElementById('subscriberName').value = ''; document.getElementById('prevReading').value = ''; document.getElementById('currReading').value = ''; document.getElementById('delayMonths').value = 0; } calculateBill(); }
+function enableEdit(elementId) { document.getElementById(elementId).focus(); showToast('تم فتح الحقل للتعديل'); }
+
+function renderDebts() { const container = document.getElementById('debtsListContainer'); if(!container) return; container.innerHTML = ''; const debtors = subscribers.filter(s => Number(s.debtAmount) > 0); debtors.sort((a, b) => Number(a.counter) - Number(b.counter)); if(debtors.length === 0) { container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً.</p>'; return; } debtors.forEach((sub) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:var(--danger-red);">عداد (${sub.counter}): ${sub.name}</strong><span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span></div><div><button class="pay-btn" onclick="collectDebt('${sub.firestoreId}', ${sub.debtAmount}, '${sub.counter}', '${sub.name}')">💵 استخلاص</button></div>`; container.appendChild(div); }); }
+async function collectDebt(firestoreId, amount, counter, name) { if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } let nowMonth = new Date().toISOString().slice(0, 7); let newTrans = { firestoreId: 'local_' + Date.now(), month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(newTrans); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), newTrans); if(!firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); } showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); } }
+
+function renderArchive() { const container = document.getElementById('archiveContainer'); if(!container) return; container.innerHTML = ''; let allMonths = new Set(); archiveBills.forEach(b => allMonths.add(b.month)); archiveFinance.forEach(f => allMonths.add(f.month)); let sortedMonths = Array.from(allMonths).sort().reverse(); if(sortedMonths.length === 0) { container.innerHTML = '<p>لا توجد بيانات مسجلة.</p>'; return; } sortedMonths.forEach(month => { let monthBills = archiveBills.filter(b => b.month === month); let monthFinance = archiveFinance.filter(f => f.month === month); monthBills.sort((a, b) => Number(a.counter) - Number(b.counter)); let monthTotalWater = 0, monthTotalAmount = 0; monthBills.forEach(b => { monthTotalWater += Number(b.consumption || 0); monthTotalAmount += Number(b.total || 0); }); const box = document.createElement('div'); box.className = 'archive-month-box'; let html = `<div class="printable-archive"><h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px;"><span>📅 الأرشيف الشامل - شهر: ${month}</span></h4><div style="display:flex; gap:20px; margin-bottom:10px; font-size:0.95rem; background:var(--bg-light); padding:8px; border-radius:6px;"><span>الاستهلاك: <strong>${monthTotalWater} m³</strong></span><span>المبالغ المحصلة: <strong class="text-success">${monthTotalAmount} درهم</strong></span></div>`; if(monthBills.length > 0) { html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthBills.forEach(b => { html += `<tr><td>${b.counter}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية:</h5>`; if(monthFinance.length > 0) { html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthFinance.forEach(f => { html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } html += `</div>`; box.innerHTML = html; container.appendChild(box); }); }
+async function deleteArchiveBill(id) { if(confirm('متأكد من الحذف؟')) { archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "archive_bills", id)); renderArchive(); } }
+async function deleteArchiveFinance(id) { if(confirm('متأكد من الحذف؟')) { archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "archive_finance", id)); renderArchive(); } }
+
+function toggleStatInputs() { const type = document.getElementById('statTypeSelect').value; document.getElementById('monthInputGroup').style.display = (type === 'monthly') ? 'block' : 'none'; document.getElementById('yearInputGroup').style.display = (type === 'yearly') ? 'block' : 'none'; renderAdvancedStats(); }
+function renderAdvancedStats() { const container = document.getElementById('statsContainer'); if(!container) return; const type = document.getElementById('statTypeSelect').value; let filteredBills = []; let periodTitle = ''; if (type === 'monthly') { const monthSelect = document.getElementById('statsMonthSelect'); if(!monthSelect.value) { let now = new Date(); monthSelect.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'); } filteredBills = archiveBills.filter(b => b.month === monthSelect.value); periodTitle = `شهر: ${monthSelect.value}`; } else { const yearSelect = document.getElementById('statsYearSelect'); filteredBills = archiveBills.filter(b => b.month && b.month.startsWith(yearSelect.value)); periodTitle = `سنة: ${yearSelect.value}`; } if(filteredBills.length === 0) { container.innerHTML = `<p style="margin-top:15px; color:#666;">لا توجد بيانات لـ (${periodTitle}).</p>`; return; } let totalWater = 0, totalT1 = 0, totalT2 = 0, totalT3 = 0, maxConsumption = -1, topConsumer = '---'; filteredBills.forEach(b => { let cons = Number(b.consumption || 0); totalWater += cons; totalT1 += Number(b.t1 || 0); totalT2 += Number(b.t2 || 0); totalT3 += Number(b.t3 || 0); if(cons > maxConsumption) { maxConsumption = cons; topConsumer = `عداد (${b.counter}) ${b.name} (${cons} m³)`; } }); let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0; let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0; let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0; container.innerHTML = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;"><div class="stat-row"><span>الاستهلاك (${periodTitle}):</span><strong style="color:var(--primary-blue); font-size:1.2rem;">${totalWater} m³</strong></div><div class="stat-row"><span>الأكثر استهلاكاً:</span><strong class="text-danger">${topConsumer}</strong></div><h4 style="margin:10px 0 5px 0; color:var(--primary-blue);">📈 مبيانات الأشطر:</h4><div class="chart-container"><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الأول</span><span>${p1}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p1}%; background: var(--accent-green);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثاني</span><span>${p2}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p2}%; background: var(--secondary-cyan);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثالث</span><span>${p3}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p3}%; background: var(--danger-red);"></div></div></div></div></div>`; }
+
+
+// ================== ربط الدوال بالواجهة (Window Scope Mapping) ==================
+window.checkAuth = checkAuth;
+window.handleEnter = handleEnter;
+window.authenticate = authenticate;
+window.logout = logout;
+window.toggleSidebar = toggleSidebar;
+window.showToast = showToast;
+window.navigateTo = navigateTo;
+window.printDonations = printDonations;
+window.saveSubscriber = saveSubscriber;
+window.editSubscriber = editSubscriber;
+window.resetSubForm = resetSubForm;
+window.renderSubscribers = renderSubscribers;
+window.generateAndSendPIN = generateAndSendPIN;
+window.deleteSubscriber = deleteSubscriber;
+window.renderSubPortalBills = renderSubPortalBills;
+window.submitComplaint = submitComplaint;
+window.renderAdminComplaints = renderAdminComplaints;
+window.markComplaintRead = markComplaintRead;
+window.deleteComplaint = deleteComplaint;
+window.saveDonation = saveDonation;
+window.renderDonations = renderDonations;
+window.deleteDonation = deleteDonation;
+window.updateFinancialDashboard = updateFinancialDashboard;
+window.saveTransaction = saveTransaction;
+window.renderTransactions = renderTransactions;
+window.deleteTransaction = deleteTransaction;
+window.uploadFinancialPDF = uploadFinancialPDF;
+window.renderPDFReportsList = renderPDFReportsList;
+window.viewPDF = viewPDF;
+window.closePDFModal = closePDFModal;
+window.deletePDFReport = deletePDFReport;
+window.calculateBill = calculateBill;
+window.saveBill = saveBill;
+window.sendWhatsAppNotification = sendWhatsAppNotification;
+window.autoFillSubscriber = autoFillSubscriber;
+window.enableEdit = enableEdit;
+window.renderDebts = renderDebts;
+window.collectDebt = collectDebt;
+window.renderArchive = renderArchive;
+window.deleteArchiveBill = deleteArchiveBill;
+window.deleteArchiveFinance = deleteArchiveFinance;
+window.toggleStatInputs = toggleStatInputs;
+window.renderAdvancedStats = renderAdvancedStats;
+window.addManualCapital = addManualCapital;
+window.renderCapital = renderCapital;
+window.saveBylaws = saveBylaws;
+window.saveSettings = saveSettings;
