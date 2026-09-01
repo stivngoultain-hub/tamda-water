@@ -34,21 +34,21 @@
     <div class="no-print">
         <header>
             <h2>💧 تامدة للتنمية</h2>
-            <button class="menu-btn" id="menuBtn">☰</button>
+            <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()">☰</button>
         </header>
 
-        <div class="overlay" id="overlay"></div>
+        <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
         <div class="sidebar" id="sidebar">
-            <span class="close-btn" id="closeBtn">×</span>
-            <div style="text-align:center; margin-bottom:15px; color:var(--accent-green); font-weight:bold;" id="activeUserLabel"></div>
+            <span class="close-btn" id="closeBtn" onclick="toggleSidebar()">×</span>
+            <div style="text-align:center; margin:15px 0; color:var(--accent-green); font-weight:bold;" id="activeUserLabel"></div>
             
             <h3>القائمة الرئيسية</h3>
             <a onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
             <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
             <a onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
+            <a onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشهرية</a>
             <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
             <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
-            <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
             <a onclick="navigateTo('📜 القانون الأساسي')">📜 القانون الأساسي</a>
             <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
             <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
@@ -76,12 +76,14 @@
         <!-- 2. إدارة المنخرطين -->
         <div id="view-subscribers" class="view-section" style="display: none;">
             <div class="card no-print">
-                <h3>➕ إضافة مشترك جديد</h3>
+                <h3 id="subFormTitle">➕ إضافة مشترك جديد</h3>
+                <input type="hidden" id="editingSubId" value="">
                 <div class="form-group"><label>رقم العداد</label><input type="number" id="newSubCounter" placeholder="مثال: 1"></div>
                 <div class="form-group"><label>الاسم الكامل</label><input type="text" id="newSubName" placeholder="مثال: محمد..."></div>
                 <div class="form-group"><label>رقم الهاتف (الواتساب)</label><input type="text" id="newSubPhone" placeholder="مثال: 212600000000"></div>
                 <div class="form-group"><label>الدوار / الموقع</label><input type="text" id="newSubLocation" placeholder="مثال: دوار تامدة..."></div>
-                <button class="btn btn-blue" onclick="saveSubscriber()">💾 حفظ المشترك</button>
+                <button class="btn btn-blue" id="subSaveBtn" onclick="saveSubscriber()">💾 حفظ المشترك</button>
+                <button class="btn btn-outline" id="subCancelBtn" onclick="resetSubForm()" style="display:none; margin-top:5px;">إلغاء التعديل</button>
             </div>
             <div class="card no-print">
                 <h3>لائحة المنخرطين (<span id="subListCount">0</span>)</h3>
@@ -93,14 +95,30 @@
         <!-- 3. إدارة ماء الشرب والفوترة -->
         <div id="view-water" class="view-section" style="display: none;">
             <div class="card no-print">
-                <h3>💧 إدخال قراءة العدادات</h3>
-                <div class="form-group"><label>رقم العداد (سينتقل للتالي تلقائياً)</label><input type="number" id="counterNum" oninput="autoFillSubscriber()"></div>
-                <div class="form-group"><label>شهر الاستهلاك</label><input type="month" id="billingMonth"></div>
+                <h3>💧 إدخال قراءة العدادات والفوترة</h3>
+                <div class="form-group">
+                    <label>نظام تسعيرة الأشطر</label>
+                    <select id="tariffSystem" onchange="calculateBill()">
+                        <option value="current">النظام الحالي (شطر 1: 4د | شطر 2: 8د | شطر 3: 15د)</option>
+                        <option value="old">النظام القديم (شطر 1: 3د | شطر 2: 5د | شطر 3: 7د + 15د صيانة)</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>رقم العداد</label><input type="number" id="counterNum" oninput="autoFillSubscriber()"></div>
+                <div class="form-group"><label>شهر الاستهلاك</label><input type="month" id="billingMonth" onchange="calculateBill()"></div>
                 <div class="form-group"><label>اسم المشترك</label><input type="text" id="subscriberName" readonly style="background:#eee;"></div>
-                <div class="form-group"><label>القراءة السابقة (m³)</label><input type="number" id="prevReading"><small id="prevReadingHint" style="color:var(--danger-red); display:none;">مغلقة (جُلبت من الشهر السابق).</small></div>
-                <div class="form-group"><label>القراءة الحالية (m³)</label><input type="number" id="currReading"></div>
-                <div class="form-group"><label>أشهر التأخير المتراكمة</label><input type="number" id="delayMonths" value="0" min="0"></div>
-                <button class="btn btn-blue" onclick="calculateBill()">حساب الفاتورة</button>
+                <div class="form-group"><label>القراءة السابقة (m³)</label><input type="number" id="prevReading" oninput="calculateBill()"><small id="prevReadingHint" style="color:var(--danger-red); display:none;">مغلقة (جُلبت من الشهر السابق).</small></div>
+                <div class="form-group"><label>القراءة الحالية (m³)</label><input type="number" id="currReading" oninput="calculateBill()"></div>
+                <div class="form-group"><label>أشهر التأخير المتراكمة</label><input type="number" id="delayMonths" value="0" min="0" oninput="calculateBill()"></div>
+                
+                <!-- خانة الإعفاء للحالات الخاصة -->
+                <div class="form-group" style="background: #eef9ff; padding: 10px; border-radius: 8px; border: 1px dashed var(--secondary-cyan);">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--primary-blue); font-weight: bold;">
+                        <input type="checkbox" id="exemptionCheck" onchange="calculateBill()" style="width: 20px; height: 20px;">
+                        <span>حالة إعفاء خاصة (تصفير الفاتورة إلى 0 درهم مع اعتماد استهلاك العداد)</span>
+                    </label>
+                </div>
+
+                <button class="btn btn-blue" onclick="calculateBill()">إعادة حساب الفاتورة</button>
             </div>
 
             <div class="card" id="billResult" style="display: none; border-top: 4px solid var(--accent-green);">
@@ -124,7 +142,8 @@
                 <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
                 <div class="stat-row"><span>ثمن الاستهلاك:</span><strong id="consumptionPriceResult">0 درهم</strong></div>
                 <div class="stat-row"><span>واجب الصيانة:</span><strong id="printMaintenance">15 درهم</strong></div>
-                <div class="stat-row" id="penaltyRow" style="display:none;"><span>غرامة التأخير (تجاوز شهرين):</span><span class="text-danger" id="printPenalty">50 درهم</span></div>
+                <div class="stat-row" id="penaltyRow" style="display:none;"><span>غرامة التأخير:</span><span class="text-danger" id="printPenalty">0 درهم</span></div>
+                <div class="stat-row" id="exemptionNotice" style="display:none; color: var(--accent-green); font-weight: bold;"><span>حالة إعفاء خاصة:</span><span>مستفيد من الإعفاء (0 درهم)</span></div>
                 <hr style="border:0; border-top:2px solid #eee; margin:10px 0;">
                 <div class="stat-row"><span>المبلغ الإجمالي الواجب أداؤه:</span><span class="text-success" id="totalPriceResult" style="font-size: 1.3rem;">0 درهم</span></div>
                 
@@ -139,7 +158,19 @@
             </div>
         </div>
 
-        <!-- 4. المداخيل والمصاريف -->
+        <!-- 4. الإحصائيات الشهرية -->
+        <div id="view-stats" class="view-section" style="display: none;">
+            <div class="card">
+                <h3>📊 الإحصائيات الشهرية واستهلاك الأشطر</h3>
+                <div class="form-group">
+                    <label>اختر الشهر للاطلاع على الإحصائيات</label>
+                    <input type="month" id="statsMonthSelect" onchange="renderMonthlyStats()">
+                </div>
+                <div id="statsContainer"></div>
+            </div>
+        </div>
+
+        <!-- 5. المداخيل والمصاريف -->
         <div id="view-finance" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>💰 تسجيل المداخيل والمصاريف</h3>
@@ -147,14 +178,10 @@
                 <div class="form-group"><label>نوع العملية</label><select id="transType"><option value="income">مدخول (+)</option><option value="expense">مصروف (-)</option></select></div>
                 <div class="form-group"><label>المبلغ (درهم)</label><input type="number" id="transAmount" placeholder="0"></div>
                 <div class="form-group"><label>البيان / الوصف</label><input type="text" id="transDesc" placeholder="مثال: إصلاح مضخة..."></div>
-                
-                <!-- حقل المسح الضوئي للمستندات عبر كاميرا الهاتف مباشرة -->
                 <div class="form-group">
-                    <label>إثبات المصروف (مسح ضوئي بالوثيقة)</label>
-                    <input type="file" id="transFile" accept="image/*" capture="environment" style="margin-bottom: 5px;">
-                    <small style="color: #666; display: block;">سيتم فتح كاميرا الهاتف لتصوير الوصل أو الفاتورة بوضوح.</small>
+                    <label>إثبات المصروف (مسح ضوئي بالكاميرا)</label>
+                    <input type="file" id="transFile" accept="image/*" capture="environment">
                 </div>
-
                 <button class="btn" onclick="saveTransaction()">💾 تسجيل العملية</button>
             </div>
             <div class="card no-print">
@@ -163,25 +190,11 @@
             </div>
         </div>
 
-        <!-- 5. الديون والأرصدة -->
+        <!-- 6. الديون والأرصدة -->
         <div id="view-debts" class="view-section" style="display: none;">
             <div class="card">
                 <h3>📒 لائحة الديون والأرصدة غير المستخلصة</h3>
-                <p class="no-print" style="color: #666; font-size: 0.9rem;">يتم تحديث هذه اللائحة تلقائياً بناءً على فواتير الماء غير المؤداة.</p>
                 <div id="debtsListContainer"></div>
-            </div>
-        </div>
-
-        <!-- 6. التقارير المالية -->
-        <div id="view-reports" class="view-section" style="display: none;">
-            <div class="card">
-                <div class="print-header" style="display:none; text-align:center; margin-bottom:20px;"><h2>جمعية تامدة للتنمية</h2><p>التقرير المالي</p><hr></div>
-                <h3>📊 التقرير المالي العام</h3>
-                <div class="stat-row"><span>مجموع المداخيل:</span><strong class="text-success" id="totalIncomeReport">0 درهم</strong></div>
-                <div class="stat-row"><span>مجموع المصاريف:</span><strong class="text-danger" id="totalExpenseReport">0 درهم</strong></div>
-                <hr style="border:0; border-top:2px solid #eee; margin:15px 0;">
-                <div class="stat-row"><span>الرصيد الصافي:</span><strong id="netBalanceReport" style="font-size: 1.3rem; color: var(--primary-blue);">0 درهم</strong></div>
-                <div class="no-print"><button class="btn btn-outline" style="margin-top:20px;" onclick="window.print()">🖨️ طبع التقرير</button></div>
             </div>
         </div>
 
@@ -189,9 +202,7 @@
         <div id="view-bylaws" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>📜 تعديل القانون الأساسي</h3>
-                <div class="form-group">
-                    <textarea id="bylawInput" rows="8" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;" placeholder="اكتب بنود القانون الأساسي هنا..."></textarea>
-                </div>
+                <div class="form-group"><textarea id="bylawInput" rows="8" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;" placeholder="اكتب بنود القانون الأساسي هنا..."></textarea></div>
                 <button class="btn btn-blue" onclick="saveBylaws()">💾 حفظ التعديلات</button>
             </div>
             <div class="card">
@@ -200,11 +211,11 @@
             </div>
         </div>
 
-        <!-- 8. الأرشيف المجمع (الشهري) -->
+        <!-- 8. الأرشيف وملف الاستهلاك الشهري الشامل -->
         <div id="view-archive" class="view-section" style="display: none;">
             <div class="card">
-                <h3>🗂️ الأرشيف المجمع حسب الشهور</h3>
-                <p class="no-print" style="color: #666; font-size: 0.9rem;">يتم تجميع فواتير العدادات والعمليات المالية لكل شهر تلقائياً في وثيقة واحدة قابلة للطباعة والتحميل.</p>
+                <h3>🗂️ ملف الاستهلاك الشهري والأرشيف الشامل</h3>
+                <p class="no-print" style="color: #666; font-size: 0.9rem;">يجمع استهلاك كل عداد، ثمنه، وضعية الدفع، المجموع الكلي للاستهلاك، والمداخيل في ملف واحد.</p>
                 <div id="archiveContainer" style="margin-top: 20px;"></div>
             </div>
         </div>
@@ -212,7 +223,7 @@
         <!-- 9. الإعدادات -->
         <div id="view-settings" class="view-section" style="display: none;">
             <div class="card no-print">
-                <h3>⚙️ الإعدادات وتخصيص الأثمنة</h3>
+                <h3>⚙️ الإعدادات وتخصيص الأثمنة (النظام الحالي)</h3>
                 <div class="form-group"><label>ثمن الشطر 1 (بالدرهم)</label><input type="number" id="setTier1"></div>
                 <div class="form-group"><label>ثمن الشطر 2 (بالدرهم)</label><input type="number" id="setTier2"></div>
                 <div class="form-group"><label>ثمن الشطر 3 (بالدرهم)</label><input type="number" id="setTier3"></div>
