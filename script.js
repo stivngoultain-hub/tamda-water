@@ -142,7 +142,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل وإغلاق القائمة الجانبية جذرياً
+// 5. التنقل وإغلاق القائمة الجانبية وإلغاؤها تماماً في الأرشيف
 // ==========================================
 window.toggleSidebar = function() { 
     if (sidebar) sidebar.classList.toggle('active'); 
@@ -157,9 +157,15 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق القائمة الجانبية والخلفية المعتمة إجبارياً وفوراً عند الانتقال لأي صفحة (بما فيها الأرشيف)
+    // إغلاق تام ونهائي لأي قائمة أو خلفية معتمة
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
+
+    // منع أي احتمال لفتح القائمة إذا كان الانتقال إلى الأرشيف
+    if (pageName === '🗄️ الأرشيف والتخزين') {
+        if (sidebar) sidebar.style.display = 'none';
+        setTimeout(() => { if (sidebar) sidebar.style.display = 'flex'; }, 300);
+    }
 
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     
@@ -761,6 +767,7 @@ window.renderArchive = function() {
         }
         
         html += `</div>`;
+        box.boxHtml = html;
         box.innerHTML = html;
         container.appendChild(box);
     });
