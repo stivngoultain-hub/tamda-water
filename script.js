@@ -144,7 +144,7 @@ window.logout = function() {
 // ==========================================
 // 5. التنقل وإغلاق القائمة الجانبية تلقائياً
 // ==========================================
-function toggleSidebar() { 
+window.toggleSidebar = function() { 
     if(sidebar) sidebar.classList.toggle('active'); 
     if(overlay) overlay.classList.toggle('active'); 
 }
@@ -161,7 +161,7 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق القائمة الجانبية فور النقر على أي خيار لمنع تداخل الشاشة
+    // إغلاق القائمة الجانبية فوراً عند النقر على أي عنصر لمنع التداخل
     if (sidebar && sidebar.classList.contains('active')) {
         sidebar.classList.remove('active');
     }
