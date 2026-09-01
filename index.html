@@ -37,7 +37,6 @@
                 <button class="menu-btn" onclick="toggleSidebar()">☰</button>
                 <h2>💧 تامدة للتنمية</h2>
             </div>
-            <!-- مؤشر حالة الاتصال (أونلاين / أوفلاين) -->
             <div id="connectionStatus" style="font-size: 0.8rem; padding: 4px 8px; border-radius: 12px; background: #25D366; color: white; font-weight: bold;">متصل</div>
         </header>
 
@@ -176,15 +175,30 @@
             </div>
         </div>
 
-        <!-- 4. الإحصائيات الشهرية -->
+        <!-- 4. الإحصائيات الشهرية والسنوية المتقدمة مع مبيانات -->
         <div id="view-stats" class="view-section" style="display: none;">
             <div class="card">
-                <h3>📊 الإحصائيات الشهرية واستهلاك الأشطر</h3>
+                <h3>📊 الإحصائيات والرسوم البيانية للاستهلاك</h3>
                 <div class="form-group">
-                    <label>اختر الشهر للاطلاع على الإحصائيات</label>
-                    <input type="month" id="statsMonthSelect" onchange="renderMonthlyStats()">
+                    <label>نوع الإحصائيات</label>
+                    <select id="statTypeSelect" onchange="toggleStatInputs()">
+                        <option value="monthly">إحصائيات شهرية</option>
+                        <option value="yearly">إحصائيات سنوية</option>
+                    </select>
                 </div>
-                <div id="statsContainer"></div>
+                <div class="form-group" id="monthInputGroup">
+                    <label>اختر الشهر</label>
+                    <input type="month" id="statsMonthSelect" onchange="renderAdvancedStats()">
+                </div>
+                <div class="form-group" id="yearInputGroup" style="display:none;">
+                    <label>اختر السنة</label>
+                    <select id="statsYearSelect" onchange="renderAdvancedStats()">
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+                <div id="statsContainer" style="margin-top: 20px;"></div>
             </div>
         </div>
 
@@ -254,7 +268,7 @@
             </div>
         </div>
 
-        <!-- 10. الإعدادات (مع تعديل كلمة السر) -->
+        <!-- 10. الإعدادات -->
         <div id="view-settings" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>⚙️ إعدادات وأثمنة النظام</h3>
