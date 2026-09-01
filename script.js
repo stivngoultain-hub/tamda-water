@@ -72,7 +72,6 @@ async function loadDataFromCloud() {
             subscribers.push({ firestoreId: docSnap.id, ...docSnap.data() });
         });
         
-        // ترتيب المنخرطين حسب رقم العداد تصاعدياً من 1 إلى الأخير
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
 
         const transSnapshot = await getDocs(collection(db, "transactions"));
@@ -142,7 +141,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل وإغلاق القائمة الجانبية وإلغاؤها تماماً في الأرشيف
+// 5. التنقل وإغلاق القائمة نهائياً في الأرشيف
 // ==========================================
 window.toggleSidebar = function() { 
     if (sidebar) sidebar.classList.toggle('active'); 
@@ -157,14 +156,18 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق تام ونهائي لأي قائمة أو خلفية معتمة
+    // إغلاق قسري وفوري للـ Sidebar والـ Overlay في جميع الأحوال
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
 
-    // منع أي احتمال لفتح القائمة إذا كان الانتقال إلى الأرشيف
-    if (pageName === '🗄️ الأرشيف والتخزين') {
-        if (sidebar) sidebar.style.display = 'none';
-        setTimeout(() => { if (sidebar) sidebar.style.display = 'flex'; }, 300);
+    // إذا كان القسم هو الأرشيف، نقوم بإخفاء الـ Sidebar برمجياً تماماً لمنع ظهورها كلياً
+    if (sidebar) {
+        if (pageName === '🗄️ الأرشيف والتخزين') {
+            sidebar.style.visibility = 'hidden';
+            sidebar.style.right = '-300px';
+        } else {
+            sidebar.style.visibility = 'visible';
+        }
     }
 
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
@@ -767,7 +770,6 @@ window.renderArchive = function() {
         }
         
         html += `</div>`;
-        box.boxHtml = html;
         box.innerHTML = html;
         container.appendChild(box);
     });
