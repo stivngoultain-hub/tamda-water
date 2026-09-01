@@ -31,6 +31,8 @@ let transactionsList = []; let donationsList = [];
 let archiveBills = []; let archiveFinance = [];
 let capitalLedger = []; 
 
+const SESSION_TIMEOUT = 3 * 60 * 1000; // 3 دقائق
+
 const views = {
     '🏠 لوحة القيادة': 'view-dashboard', 
     '👥 إدارة المنخرطين': 'view-subscribers',
@@ -49,10 +51,8 @@ const views = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // إنهاء الجلسة تلقائياً إذا قام المستخدم بتحديث الصفحة (Reload)
-    if (performance.getEntriesByType("navigation").length > 0 && performance.getEntriesByType("navigation")[0].type === "reload") {
-        sessionStorage.clear();
-    }
+    // تنظيف أي بيانات دخول قديمة (شبحية) عالقة في الذاكرة الدائمة
+    ['tamda_auth', 'tamda_role', 'tamda_counter', 'tamda_subname', 'tamda_last_active'].forEach(k => localStorage.removeItem(k));
 
     loadLocalData();
     loadSettings();
@@ -69,9 +69,13 @@ document.addEventListener('DOMContentLoaded', () => {
     updateOnlineStatus(navigator.onLine);
     
     if(navigator.onLine) { loadDataFromCloud(); }
+    
+    // تسجيل التفاعل لتجديد مهلة الـ 3 دقائق
+    ['click', 'touchstart', 'keypress', 'scroll'].forEach(evt => document.addEventListener(evt, updateLastActive));
+    setInterval(checkSessionTimeout, 10000);
 });
 
-// ================== نظام الأمان والجلسات المباشر ==================
+// ================== نظام الأمان والجلسات ==================
 
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
@@ -80,15 +84,41 @@ function updateOnlineStatus(isOnline) {
     statusEl.style.background = isOnline ? "#25D366" : "#c1272d";
 }
 
+function updateLastActive() {
+    if(sessionStorage.getItem('tamda_auth') === 'true') {
+        sessionStorage.setItem('tamda_last_active', Date.now());
+    }
+}
+
+function checkSessionTimeout() {
+    if(sessionStorage.getItem('tamda_auth') === 'true') {
+        let last = parseInt(sessionStorage.getItem('tamda_last_active') || '0');
+        if(last > 0 && (Date.now() - last > SESSION_TIMEOUT)) {
+            logout(true); // طرد بسبب الخمول لـ 3 دقائق
+        }
+    }
+}
+
 function checkAuth() {
     try {
         let isAuth = sessionStorage.getItem('tamda_auth') === 'true';
         const loginScreen = document.getElementById('loginScreen');
         const appContent = document.getElementById('appContent');
 
+        // التحقق الاستباقي لمهلة 3 دقائق قبل الدخول
+        if (isAuth) {
+            let lastActive = parseInt(sessionStorage.getItem('tamda_last_active') || '0');
+            if (lastActive > 0 && (Date.now() - lastActive > SESSION_TIMEOUT)) {
+                sessionStorage.clear();
+                isAuth = false;
+                alert("انتهت الجلسة لمرور 3 دقائق دون نشاط. يرجى تسجيل الدخول مجدداً لحماية البيانات.");
+            }
+        }
+
         if(isAuth) {
             if(loginScreen) loginScreen.style.display = 'none';
             if(appContent) appContent.style.display = 'block';
+            sessionStorage.setItem('tamda_last_active', Date.now());
             
             let role = sessionStorage.getItem('tamda_role');
             if (role === 'subscriber') {
@@ -133,6 +163,7 @@ function authenticate() {
                 sessionStorage.setItem('tamda_role', 'subscriber');
                 sessionStorage.setItem('tamda_counter', counter);
                 sessionStorage.setItem('tamda_subname', sub.name);
+                sessionStorage.setItem('tamda_last_active', Date.now());
                 err.style.display = 'none';
                 codeInput.value = '';
                 checkAuth();
@@ -145,6 +176,7 @@ function authenticate() {
             if(secureCodes[role] === code) {
                 sessionStorage.setItem('tamda_auth', 'true'); 
                 sessionStorage.setItem('tamda_role', role);
+                sessionStorage.setItem('tamda_last_active', Date.now());
                 recordLoginStats(role);
                 err.style.display = 'none';
                 codeInput.value = '';
@@ -161,9 +193,11 @@ function authenticate() {
     }
 }
 
-function logout() { 
+function logout(isTimeout = false) { 
+    // مسح الجلسة فوراً
     sessionStorage.clear();
     
+    // إعادة تعيين واجهة الدخول
     const loginCode = document.getElementById('loginCode');
     const loginError = document.getElementById('loginError');
     if(loginCode) loginCode.value = '';
@@ -172,6 +206,7 @@ function logout() {
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
     
+    // التحويل السلس لواجهة الدخول
     const appContent = document.getElementById('appContent');
     const loginScreen = document.getElementById('loginScreen');
     if(appContent) appContent.style.display = 'none';
