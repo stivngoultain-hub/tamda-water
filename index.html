@@ -87,7 +87,7 @@
                 <button class="btn btn-outline" id="subCancelBtn" onclick="resetSubForm()" style="display:none; margin-top:5px;">إلغاء التعديل</button>
             </div>
             <div class="card no-print">
-                <h3>لائحة المنخرطين (<span id="subListCount">0</span>)</h3>
+                <h3>لائحة المنخرطين (مرتبة حسب رقم العداد) (<span id="subListCount">0</span>)</h3>
                 <div class="form-group"><input type="text" id="searchSub" placeholder="🔍 بحث برقم العداد أو الاسم..." oninput="renderSubscribers()"></div>
                 <div id="subscribersListContainer" style="margin-top: 15px;"></div>
             </div>
@@ -107,7 +107,14 @@
                 <div class="form-group"><label>رقم العداد</label><input type="number" id="counterNum" oninput="autoFillSubscriber()"></div>
                 <div class="form-group"><label>شهر الاستهلاك</label><input type="month" id="billingMonth" onchange="calculateBill()"></div>
                 <div class="form-group"><label>اسم المشترك</label><input type="text" id="subscriberName" readonly style="background:#eee;"></div>
-                <div class="form-group"><label>القراءة السابقة (m³)</label><input type="number" id="prevReading" oninput="calculateBill()"><small id="prevReadingHint" style="color:var(--danger-red); display:none;">مغلقة (جُلبت من الشهر السابق).</small></div>
+                <div class="form-group">
+                    <label>القراءة السابقة (m³)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="prevReading" oninput="calculateBill()" style="flex:1;">
+                        <button type="button" class="btn btn-outline" style="margin-top:0; width:auto; padding:0 12px; font-size:0.85rem;" onclick="enablePrevEdit()">✏️ تعديل القراءة</button>
+                    </div>
+                    <small id="prevReadingHint" style="color:var(--danger-red); display:none;">مغلقة (جُلبت من الشهر السابق). اضغط تعديل لتغييرها في حال الخطأ.</small>
+                </div>
                 <div class="form-group"><label>القراءة الحالية (m³)</label><input type="number" id="currReading" oninput="calculateBill()"></div>
                 <div class="form-group"><label>أشهر التأخير المتراكمة</label><input type="number" id="delayMonths" value="0" min="0" oninput="calculateBill()"></div>
                 
@@ -174,7 +181,7 @@
         <div id="view-reports" class="view-section" style="display: none;">
             <div class="card">
                 <div class="print-header" style="display:none; text-align:center; margin-bottom:20px;"><h2>جمعية تامدة للتنمية</h2><p>التقرير المالي العام</p><hr></div>
-                <h3>📊 التقرير المالي العام</h3>
+                <h3>📊 التقارير المالية العامة</h3>
                 <div class="stat-row"><span>مجموع المداخيل:</span><strong class="text-success" id="totalIncomeReport">0 درهم</strong></div>
                 <div class="stat-row"><span>مجموع المصاريف:</span><strong class="text-danger" id="totalExpenseReport">0 درهم</strong></div>
                 <hr style="border:0; border-top:2px solid #eee; margin:15px 0;">
@@ -206,7 +213,7 @@
         <!-- 7. الديون والأرصدة -->
         <div id="view-debts" class="view-section" style="display: none;">
             <div class="card">
-                <h3>📒 لائحة الديون والأرصدة غير المستخلصة</h3>
+                <h3>📒 لائحة الديون والأرصدة غير المستخلصة (مرتبة حسب رقم العداد)</h3>
                 <div id="debtsListContainer"></div>
             </div>
         </div>
