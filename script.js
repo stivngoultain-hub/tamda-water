@@ -1,10 +1,10 @@
 // ==========================================
-// 1. استيراد مكتبات Firebase (قاعدة البيانات السحابية الحية)
+// 1. استيراد مكتبات Firebase الأساسية
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// إعدادات الربط الخاصة بمشروعك على فایربیس
+// إعدادات الربط بمشروعك على فایربیس
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
   authDomain: "tamda-water-management.firebaseapp.com",
@@ -14,12 +14,12 @@ const firebaseConfig = {
   appId: "1:917420512189:web:6fd0deb84b12590e13b8d4"
 };
 
-// تهيئة Firebase و Firestore
+// تهيئة Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ==========================================
-// 2. الثوابت والمتغيرات العامة وتأمين الصلاحيات
+// 2. المتطلبات والثوابت العامة
 // ==========================================
 const secureCodes = { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال' };
@@ -52,9 +52,9 @@ const views = {
 };
 
 // ==========================================
-// 3. التشغيل الأولي والاستماع الفوري للتحديثات السحابية
+// 3. التحميل الأولي وجلب البيانات من السحابة بأمان
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     checkAuth(); 
     loadSettings();
     
@@ -64,56 +64,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if(bylawInput) bylawInput.value = savedBylaw;
     if(bylawDisplay) bylawDisplay.textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
 
-    // الاستماع الفوري لقاعدة البيانات السحابية لضمان مزامنة البيانات بين جميع الأعضاء لحظياً
-    initRealtimeDatabase();
+    // جلب البيانات من Firestore بسلاسة دون التسبب في جمود التطبيق
+    await loadDataFromCloud();
 });
 
-// دالة جلب ومزامنة البيانات حياً من Firebase Firestore
-function initRealtimeDatabase() {
-    // 1. مزامنة المنخرطين
-    onSnapshot(collection(db, "subscribers"), (snapshot) => {
+async function loadDataFromCloud() {
+    try {
+        // جلب المنخرطين
+        const subSnapshot = await getDocs(collection(db, "subscribers"));
         subscribers = [];
-        snapshot.forEach((docSnap) => {
+        subSnapshot.forEach((docSnap) => {
             subscribers.push({ firestoreId: docSnap.id, ...docSnap.data() });
         });
-        renderSubscribers();
-        updateFinancialDashboard();
-    }, (error) => { console.error("خطأ في مزامنة المنخرطين: ", error); });
 
-    // 2. مزامنة المعاملات المالية
-    onSnapshot(collection(db, "transactions"), (snapshot) => {
+        // جلب العمليات المالية
+        const transSnapshot = await getDocs(collection(db, "transactions"));
         transactionsList = [];
         totalIncome = 0;
         totalExpense = 0;
-        snapshot.forEach((docSnap) => {
+        transSnapshot.forEach((docSnap) => {
             let t = docSnap.data();
             transactionsList.push({ firestoreId: docSnap.id, ...t });
             if(t.type === 'income') totalIncome += t.amount; 
             else totalExpense += t.amount;
         });
-        renderTransactions();
-        updateFinancialDashboard();
-    }, (error) => { console.error("خطأ في مزامنة المعاملات: ", error); });
 
-    // 3. مزامنة أرشيف الفواتير
-    onSnapshot(collection(db, "archive_bills"), (snapshot) => {
+        // جلب الأرشيفات
+        const billsSnap = await getDocs(collection(db, "archive_bills"));
         archiveBills = [];
-        snapshot.forEach((docSnap) => {
-            archiveBills.push(docSnap.data());
-        });
-    });
+        billsSnap.forEach(d => archiveBills.push(d.data()));
 
-    // 4. مزامنة أرشيف المالية
-    onSnapshot(collection(db, "archive_finance"), (snapshot) => {
+        const finSnap = await getDocs(collection(db, "archive_finance"));
         archiveFinance = [];
-        snapshot.forEach((docSnap) => {
-            archiveFinance.push(docSnap.data());
-        });
-    });
+        finSnap.forEach(d => archiveFinance.push(d.data()));
+
+        renderSubscribers();
+        updateFinancialDashboard();
+        renderTransactions();
+    } catch (e) {
+        console.error("خطأ في جلب البيانات السحابية، يتم الاعتماد على الذاكرة المحلية:", e);
+    }
 }
 
 // ==========================================
-// 4. نظام تسجيل الدخول والصلاحيات
+// 4. نظام تسجيل الدخول
 // ==========================================
 window.checkAuth = function() {
     if(sessionStorage.getItem('tamda_auth') === 'true') {
@@ -152,7 +146,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. واجهات التنقل والقوائم والتنبيهات
+// 5. الواجهات والتنقل
 // ==========================================
 function toggleSidebar() { 
     if(sidebar) sidebar.classList.toggle('active'); 
@@ -190,9 +184,7 @@ window.navigateTo = function(pageName) {
 // ==========================================
 function loadSettings() { 
     let savedSettings = localStorage.getItem('tamda_settings');
-    if(savedSettings) {
-        appSettings = JSON.parse(savedSettings);
-    }
+    if(savedSettings) { appSettings = JSON.parse(savedSettings); }
 }
 
 window.loadSettingsToInputs = function() {
@@ -223,7 +215,7 @@ window.saveBylaws = function() {
 }
 
 // ==========================================
-// 7. إدارة المنخرطين (سحابياً)
+// 7. إدارة المنخرطين
 // ==========================================
 window.saveSubscriber = async function() {
     const counter = document.getElementById('newSubCounter').value.trim();
@@ -247,9 +239,10 @@ window.saveSubscriber = async function() {
         document.getElementById('newSubCounter').value = ''; 
         document.getElementById('newSubName').value = ''; 
         document.getElementById('newSubLocation').value = '';
-        showToast('تم حفظ المشترك سحابياً بنجاح!');
+        showToast('تم حفظ المشترك بنجاح!');
+        await loadDataFromCloud();
     } catch (e) {
-        console.error("خطأ في حفظ المشترك: ", e);
+        console.error("خطأ في الحفظ: ", e);
         showToast('فشل الحفظ، تحقق من الاتصال بالإنترنت');
     }
 }
@@ -289,19 +282,20 @@ window.renderSubscribers = function() {
 }
 
 window.deleteSubscriber = async function(firestoreId) {
-    if(confirm('متأكد من حذف المشترك من النظام السحابي؟')) {
+    if(confirm('متأكد من حذف المشترك؟')) {
         try {
             await deleteDoc(doc(db, "subscribers", firestoreId));
-            showToast('تم حذف المشترك بنجاح');
+            showToast('تم الحذف بنجاح');
+            await loadDataFromCloud();
         } catch (e) {
             console.error("خطأ في الحذف: ", e);
-            showToast('فشل الحذف، تحقق من الاتصال');
+            showToast('فشل الحذف');
         }
     }
 }
 
 // ==========================================
-// 8. الديون والأرصدة
+// 8. الديون والعدادات
 // ==========================================
 window.renderDebts = function() {
     const container = document.getElementById('debtsListContainer');
@@ -362,7 +356,7 @@ window.autoFillSubscriber = function() {
 }
 
 // ==========================================
-// 9. العمليات المالية والمداخيل (سحابياً)
+// 9. العمليات المالية والمداخيل
 // ==========================================
 window.updateFinancialDashboard = function() {
     const netBalance = totalIncome - totalExpense;
@@ -392,17 +386,17 @@ window.saveTransaction = async function() {
     let transactionObj = { month, type, amount, desc, fileName, timestamp: new Date().toISOString() };
     
     try {
-        // حفظ المعاملة في مجموعة العمليات المالية ومجموعة أرشيف المالية سحابياً
         await addDoc(collection(db, "transactions"), transactionObj);
         await addDoc(collection(db, "archive_finance"), transactionObj);
 
         document.getElementById('transAmount').value = ''; 
         document.getElementById('transDesc').value = ''; 
         if(fileInput) fileInput.value = '';
-        showToast('تم تسجيل العملية وتزامنها مع الأرشيف بنجاح');
+        showToast('تم تسجيل العملية بنجاح');
+        await loadDataFromCloud();
     } catch (e) {
-        console.error("خطأ في حفظ المعاملة المالية: ", e);
-        showToast('فشل الحفظ، تحقق من الاتصال بالإنترنت');
+        console.error("خطأ في الحفظ: ", e);
+        showToast('فشل الحفظ');
     }
 }
 
@@ -434,19 +428,20 @@ window.renderTransactions = function() {
 }
 
 window.deleteTransaction = async function(firestoreId) {
-    if(confirm('حذف هذه العملية المالية من النظام والسحابة؟')) {
+    if(confirm('حذف هذه العملية؟')) {
         try {
             await deleteDoc(doc(db, "transactions", firestoreId));
-            showToast('تم حذف العملية بنجاح');
+            showToast('تم الحذف بنجاح');
+            await loadDataFromCloud();
         } catch (e) {
             console.error("خطأ في الحذف: ", e);
-            showToast('فشل الحذف، تحقق من الاتصال');
+            showToast('فشل الحذف');
         }
     }
 }
 
 // ==========================================
-// 10. حساب وفواتير ماء الشرب
+// 10. حساب وفواتير الماء
 // ==========================================
 window.calculateBill = function() {
     const counterNum = document.getElementById('counterNum').value || 'غير محدد';
@@ -461,16 +456,9 @@ window.calculateBill = function() {
 
     const consumption = curr - prev;
     let t1_cons = 0, t2_cons = 0, t3_cons = 0;
-    if (consumption <= 15) { 
-        t1_cons = consumption; 
-    } else if (consumption <= 20) { 
-        t1_cons = 15; 
-        t2_cons = consumption - 15; 
-    } else { 
-        t1_cons = 15; 
-        t2_cons = 5; 
-        t3_cons = consumption - 20; 
-    }
+    if (consumption <= 15) { t1_cons = consumption; } 
+    else if (consumption <= 20) { t1_cons = 15; t2_cons = consumption - 15; } 
+    else { t1_cons = 15; t2_cons = 5; t3_cons = consumption - 20; }
 
     const t1_cost = t1_cons * appSettings.tier1;
     const t2_cost = t2_cons * appSettings.tier2;
@@ -529,10 +517,8 @@ window.saveBill = async function(isPaid) {
         };
 
         try {
-            // حفظ الفاتورة في الأرشيف السحابي
             await addDoc(collection(db, "archive_bills"), billArchiveObj);
 
-            // إذا كان مشتركاً مسجلاً في اللائحة، نقوم بتحديث بياناته سحابياً
             if (sub) {
                 let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1);
                 let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal);
@@ -545,7 +531,6 @@ window.saveBill = async function(isPaid) {
                 });
             }
 
-            // إذا كانت خالصة، نضيفها كمعاملة مدخول سحابية لتحديث رصيد الجمعية للجميع
             if (isPaid) {
                 await addDoc(collection(db, "transactions"), {
                     month: currentMonth,
@@ -555,9 +540,9 @@ window.saveBill = async function(isPaid) {
                     fileName: 'فاتورة أوتوماتيكية',
                     timestamp: new Date().toISOString()
                 });
-                showToast('تم حفظ الفاتورة وتأكيد الخلاص سحابياً');
+                showToast('تم حفظ الفاتورة وتأكيد الخلاص');
             } else {
-                showToast('تم تسجيل الفاتورة كـ (دين) سحابياً');
+                showToast('تم تسجيل الفاتورة كـ (دين)');
             }
 
             currentBillTotal = 0; 
@@ -567,10 +552,11 @@ window.saveBill = async function(isPaid) {
             let nextCounter = parseInt(counterInput);
             if (!isNaN(nextCounter)) { document.getElementById('counterNum').value = nextCounter + 1; }
             autoFillSubscriber();
+            await loadDataFromCloud();
 
         } catch (e) {
             console.error("خطأ في حفظ الفاتورة: ", e);
-            showToast('فشل حفظ الفاتورة، تحقق من اتصال الإنترنت');
+            showToast('فشل حفظ الفاتورة');
         }
 
     } else { 
@@ -579,7 +565,7 @@ window.saveBill = async function(isPaid) {
 }
 
 // ==========================================
-// 11. الأرشيف الشهري المجمع
+// 11. الأرشيف
 // ==========================================
 window.renderArchive = function() {
     const container = document.getElementById('archiveContainer');
@@ -608,33 +594,23 @@ window.renderArchive = function() {
             <div id="print-month-${month}" class="printable-archive">
                 <h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                     <span>📅 أرشيف شهر: ${month}</span>
-                    <button class="btn btn-blue no-print" style="margin:0; width:auto; padding:6px 12px; font-size:0.85rem;" onclick="printMonthArchive('${month}')">🖨️ تحميل/طبع وثيقة الشهر</button>
+                    <button class="btn btn-blue no-print" style="margin:0; width:auto; padding:6px 12px; font-size:0.85rem;" onclick="printMonthArchive('${month}')">🖨️ طباعة وثيقة الشهر</button>
                 </h4>
                 <h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💧 فواتير العدادات المحصلة:</h5>
         `;
         
         if(monthBills.length > 0) {
-            html += `
-                <table class="archive-table">
-                    <thead><tr><th>رقم العداد</th><th>اسم المشترك</th><th>المبلغ المؤدى (درهم)</th><th>الحالة</th></tr></thead>
-                    <tbody>
-            `;
-            monthBills.forEach(b => {
-                html += `<tr><td>${b.counter}</td><td>${b.name}</td><td>${b.total}</td><td>${b.status}</td></tr>`;
-            });
+            html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>اسم المشترك</th><th>المبلغ (درهم)</th><th>الحالة</th></tr></thead><tbody>`;
+            monthBills.forEach(b => { html += `<tr><td>${b.counter}</td><td>${b.name}</td><td>${b.total}</td><td>${b.status}</td></tr>`; });
             html += `</tbody></table>`;
         } else {
             html += `<p style="font-size:0.9rem; color:#666;">لا توجد فواتير مسجلة لهذا الشهر.</p>`;
         }
         
-        html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 المداخيل والمصاريف المنجزة:</h5>`;
+        html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 المداخيل والمصاريف:</h5>`;
         
         if(monthFinance.length > 0) {
-            html += `
-                <table class="archive-table">
-                    <thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>البيان / الوصف</th><th>المرفق</th></tr></thead>
-                    <tbody>
-            `;
+            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th>المرفق</th></tr></thead><tbody>`;
             monthFinance.forEach(f => {
                 let typeText = f.type === 'income' ? 'مدخول (+)' : 'مصروف (-)';
                 let colorClass = f.type === 'income' ? 'text-success' : 'text-danger';
@@ -654,16 +630,7 @@ window.renderArchive = function() {
 window.printMonthArchive = function(month) {
     let printContent = document.getElementById(`print-month-${month}`).innerHTML;
     let originalBody = document.body.innerHTML;
-    
-    document.body.innerHTML = `
-        <div style="padding:20px; direction:rtl; font-family:'Segoe UI', Tahoma, sans-serif;">
-            <h2 style="text-align:center; color:#1b6393;">جمعية تامدة للتنمية</h2>
-            <h3 style="text-align:center; color:#444;">تقرير الأرشيف الشهري المجمع - ${month}</h3>
-            <hr style="margin-bottom:20px;">
-            ${printContent}
-        </div>
-    `;
-    
+    document.body.innerHTML = `<div style="padding:20px; direction:rtl; font-family:'Segoe UI', Tahoma, sans-serif;"><h2>جمعية تامدة للتنمية</h2><h3>تقرير الأرشيف الشهري - ${month}</h3><hr>${printContent}</div>`;
     window.print();
     document.body.innerHTML = originalBody;
     location.reload(); 
