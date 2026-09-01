@@ -142,7 +142,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل والواجهات
+// 5. التنقل وإغلاق القائمة الجانبية تلقائياً
 // ==========================================
 function toggleSidebar() { 
     if(sidebar) sidebar.classList.toggle('active'); 
@@ -161,7 +161,14 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    if (sidebar && sidebar.classList.contains('active')) toggleSidebar();
+    // إغلاق القائمة الجانبية فور النقر على أي خيار لمنع تداخل الشاشة
+    if (sidebar && sidebar.classList.contains('active')) {
+        sidebar.classList.remove('active');
+    }
+    if (overlay && overlay.classList.contains('active')) {
+        overlay.classList.remove('active');
+    }
+
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     
     if (views[pageName] && document.getElementById(views[pageName])) {
@@ -219,25 +226,15 @@ window.saveSubscriber = async function() {
     const phoneEl = document.getElementById('newSubPhone');
     const locationEl = document.getElementById('newSubLocation');
     
-    if (!counterEl || !nameEl) {
-        showToast('خطأ في عناصر الصفحة');
-        return;
-    }
+    if (!counterEl || !nameEl) return;
 
     const counter = counterEl.value.trim();
     const name = nameEl.value.trim();
     const phone = phoneEl ? phoneEl.value.trim() : '';
     const location = locationEl ? locationEl.value.trim() : '';
     
-    if (!counter || !name) { 
-        showToast('المرجو إدخال رقم العداد والاسم'); 
-        return; 
-    }
-    
-    if (subscribers.find(s => s.counter == counter)) { 
-        showToast('العداد مسجل مسبقاً!'); 
-        return; 
-    }
+    if (!counter || !name) { showToast('المرجو إدخال رقم العداد والاسم'); return; }
+    if (subscribers.find(s => s.counter == counter)) { showToast('العداد مسجل مسبقاً!'); return; }
     
     try {
         showToast('جاري الحفظ...');
@@ -252,16 +249,11 @@ window.saveSubscriber = async function() {
             lastBilledMonth: ''
         });
         
-        counterEl.value = ''; 
-        nameEl.value = ''; 
-        if(phoneEl) phoneEl.value = '';
-        if(locationEl) locationEl.value = '';
-        
+        counterEl.value = ''; nameEl.value = ''; if(phoneEl) phoneEl.value = ''; if(locationEl) locationEl.value = '';
         showToast('تم حفظ المشترك بنجاح!');
         await loadDataFromCloud();
     } catch (e) {
-        console.error("خطأ في الحفظ: ", e);
-        showToast('فشل الحفظ، تحقق من الاتصال بالإنترنت');
+        showToast('فشل الحفظ، تحقق من الإنترنت');
     }
 };
 
@@ -306,7 +298,6 @@ window.deleteSubscriber = async function(firestoreId) {
             showToast('تم الحذف بنجاح');
             await loadDataFromCloud();
         } catch (e) {
-            console.error("خطأ في الحذف: ", e);
             showToast('فشل الحذف');
         }
     }
@@ -413,7 +404,6 @@ window.saveTransaction = async function() {
         showToast('تم تسجيل العملية بنجاح');
         await loadDataFromCloud();
     } catch (e) {
-        console.error("خطأ في حفظ العملية: ", e);
         showToast('فشل الحفظ');
     }
 };
@@ -452,7 +442,6 @@ window.deleteTransaction = async function(firestoreId) {
             showToast('تم الحذف بنجاح');
             await loadDataFromCloud();
         } catch (e) {
-            console.error("خطأ في الحذف: ", e);
             showToast('فشل الحذف');
         }
     }
@@ -573,7 +562,6 @@ window.saveBill = async function(isPaid) {
             await loadDataFromCloud();
 
         } catch (e) {
-            console.error("خطأ في حفظ الفاتورة: ", e);
             showToast('فشل حفظ الفاتورة');
         }
 
