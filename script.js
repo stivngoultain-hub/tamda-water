@@ -46,6 +46,7 @@ const views = {
     '📒 الديون والأرصدة': 'view-debts', 
     '📜 القانون والتقارير': 'view-bylaws', 
     '🗄️ الأرشيف والتخزين': 'view-archive',
+    '👥 نشاط الأعضاء': 'view-member-activity',
     '⚙️ الإعدادات': 'view-settings'
 };
 
@@ -261,13 +262,13 @@ window.updatePassword = function() {
 };
 
 function renderMemberActivityStats() {
-    const container = document.getElementById('memberActivityStats');
+    const container = document.getElementById('dedicatedMemberActivityContainer');
     if(!container) return;
     let currentMonth = new Date().toISOString().slice(0, 7);
     let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
     let monthData = allActivity[currentMonth] || {};
 
-    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><ul style="padding-right:20px; margin:5px 0;">`;
+    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><ul style="padding-right:20px; margin:5px 0; line-height:1.8;">`;
     for(let r in roleNames) {
         let stats = monthData[r] || { logins: 0, minutes: 0 };
         let hours = (stats.minutes / 60).toFixed(1);
@@ -301,7 +302,8 @@ window.navigateTo = function(pageName) {
     if (views[pageName] && document.getElementById(views[pageName])) {
         document.getElementById(views[pageName]).style.display = 'block';
         if(pageName === '👥 إدارة المنخرطين') renderSubscribers();
-        if(pageName === '⚙️ الإعدادات') { loadSettingsToInputs(); renderMemberActivityStats(); }
+        if(pageName === '⚙️ الإعدادات') loadSettingsToInputs();
+        if(pageName === '👥 نشاط الأعضاء') renderMemberActivityStats();
         if(pageName === '📒 الديون والأرصدة') renderDebts();
         if(pageName === '💰 المداخيل والمصاريف') renderTransactions();
         if(pageName === '🗄️ الأرشيف والتخزين') renderArchive();
@@ -723,7 +725,6 @@ window.calculateBill = function() {
 
     let alertMessages = [];
 
-    // تنبيه نسيان قراءة عداد سابق أو لاحق
     let currentCounterNum = parseInt(counterNumInput);
     let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
     let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
@@ -731,7 +732,6 @@ window.calculateBill = function() {
         alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور (سابق أو لاحق) لم يسجل لشهر ' + billingMonth + '.');
     }
 
-    // تنبيه الاستهلاك (إذا كان معدله العالي >20 وسجل له أقل من 10)
     let sub = subscribers.find(s => s.counter == counterNumInput);
     let historicAvg = sub ? (sub.avgConsumption || 25) : 25;
     if (historicAvg > 20 && consumption < 10) {
