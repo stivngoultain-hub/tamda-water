@@ -38,7 +38,6 @@
                 <h2>💧 تامدة للتنمية</h2>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
-                <!-- شارة الأعضاء النشطين بالتزامن -->
                 <div id="activePeerBadge" style="display:none; font-size:0.75rem; padding:3px 8px; border-radius:10px; background:#ff9800; color:white; font-weight:bold; animation: pulseBadge 1.5s infinite;"></div>
                 <div id="connectionStatus" style="font-size: 0.8rem; padding: 4px 8px; border-radius: 12px; background: #25D366; color: white; font-weight: bold;">متصل</div>
             </div>
@@ -57,7 +56,7 @@
             <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
             <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
             <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
-            <a onclick="navigateTo('📜 القانون والتقارير')">📜 القانون والتقارير المالية</a>
+            <a onclick="navigateTo('📜 القانون والتقارير')">📜 القانون الأساسي والتقارير</a>
             <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
             <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
             
@@ -100,7 +99,7 @@
             </div>
         </div>
 
-        <!-- 3. إدارة ماء الشرب والفوترة مع التنبيهات الذكية -->
+        <!-- 3. إدارة ماء الشرب والتنبيهات -->
         <div id="view-water" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>💧 إدخال قراءة العدادات والفوترة</h3>
@@ -140,7 +139,7 @@
                     </label>
                 </div>
 
-                <!-- صندوق التنبيهات الفورية الذكية -->
+                <!-- صندوق التنبيهات الفورية -->
                 <div id="smartAlertBox" style="display:none; background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold;"></div>
 
                 <button class="btn btn-blue" onclick="calculateBill()">إعادة حساب الفاتورة</button>
@@ -250,18 +249,18 @@
             </div>
         </div>
 
-        <!-- 8. القانون الأساسي ورفع التقارير المالية PDF -->
+        <!-- 8. القانون الأساسي والتقارير المالية PDF (مع أزرار الرفع واضحة تماماً) -->
         <div id="view-bylaws" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>📜 تعديل القانون الأساسي</h3>
-                <div class="form-group"><textarea id="bylawInput" rows="6" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;" placeholder="اكتب بنود القانون الأساسي هنا..."></textarea></div>
+                <div class="form-group"><textarea id="bylawInput" rows="5" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;" placeholder="اكتب بنود القانون الأساسي هنا..."></textarea></div>
                 <button class="btn btn-blue" onclick="saveBylaws()">💾 حفظ القانون الأساسي</button>
             </div>
 
             <div class="card no-print" style="border-top-color: var(--accent-green);">
-                <h3>📁 رفع التقارير المالية (PDF)</h3>
+                <h3>📁 رفع التقارير المالية والوثائق (PDF)</h3>
                 <div class="form-group"><label>اختر ملف التقرير المالي (PDF)</label><input type="file" id="pdfReportFile" accept="application/pdf"></div>
-                <div class="form-group"><label>عنوان أو وصف التقرير</label><input type="text" id="pdfReportTitle" placeholder="مثال: التقرير المالي السنوي 2026..."></div>
+                <div class="form-group"><label>عنوان أو وصف التقرير</label><input type="text" id="pdfReportTitle" placeholder="مثال: التقرير المالي الشهري / السنوي..."></div>
                 <button class="btn" style="background-color: var(--accent-green);" onclick="uploadFinancialPDF()">📤 رفع وحفظ التقرير المالي</button>
             </div>
 
@@ -284,7 +283,7 @@
             </div>
         </div>
 
-        <!-- 10. الإعدادات -->
+        <!-- 10. الإعدادات وسجل نشاط الأعضاء -->
         <div id="view-settings" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>⚙️ إعدادات وأثمنة النظام</h3>
@@ -297,7 +296,7 @@
             </div>
 
             <div class="card no-print" style="border-top-color: var(--secondary-cyan);">
-                <h3>📊 إحصائيات نشاط الأعضاء (شهرياً)</h3>
+                <h3>📊 سجل نشاط الأعضاء (تسجيلات الدخول وساعات العمل شهرياً)</h3>
                 <div id="memberActivityStats" style="margin-top: 10px; font-size: 0.95rem;"></div>
             </div>
 
