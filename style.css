@@ -1,4 +1,4 @@
-root {
+:root {
     --primary-blue: #1b6393;
     --secondary-cyan: #3399a5;
     --accent-green: #92c13f;
@@ -29,29 +29,14 @@ header {
 header h2 { margin: 0; font-size: 1.3rem; }
 .menu-btn { font-size: 26px; cursor: pointer; background: none; border: none; color: white; padding: 5px; line-height: 1; }
 
-/* ============================================================
-   إصلاح السايد بار: استعمال transform بدل right لتفادي مشاكل
-   إعادة الرسم (repaint) في متصفحات WebView على أندرويد، والتي
-   كانت تخلي السايد بار يبقى ظاهراً فوق صفحات طويلة كالأرشيف
-   حتى بعد إغلاقه. زدنا أيضاً visibility و pointer-events كحماية
-   إضافية باش يبقى غير قابل للنقر ومختفي فعلياً حين يكون مغلقاً.
-   ============================================================ */
+/* إصلاح قاطع للسيد بار لتجنب أي تداخل مع الأرشيف أو الجداول */
 .sidebar { 
-    height: 100%; width: 280px; position: fixed; top: 0; right: 0; 
+    height: 100%; width: 280px; position: fixed; top: 0; right: -350px; 
     background-color: white; box-shadow: -5px 0 25px rgba(0,0,0,0.3); 
-    transform: translateX(350px);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
-    z-index: 9999999 !important; padding-top: 50px; 
-    display: flex; flex-direction: column; overflow-y: auto;
-    visibility: hidden;
-    pointer-events: none;
-    will-change: transform;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 9999999 !important; padding-top: 50px; 
+    display: flex; flex-direction: column; overflow-y: auto; 
 }
-.sidebar.active { 
-    transform: translateX(0);
-    visibility: visible;
-    pointer-events: auto;
-}
+.sidebar.active { right: 0 !important; }
 .sidebar h3 { text-align: center; color: var(--primary-blue); margin-bottom: 15px; font-weight: bold; font-size: 1.1rem; }
 .sidebar a { 
     padding: 12px 18px; text-decoration: none; font-size: 14px; color: var(--text-dark); 
@@ -68,12 +53,9 @@ header h2 { margin: 0; font-size: 1.3rem; }
 
 .overlay { 
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(0,0,0,0.6); z-index: 9999990 !important; backdrop-filter: blur(2px);
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
+    background: rgba(0,0,0,0.6); z-index: 9999990 !important; backdrop-filter: blur(2px); 
 }
-.overlay.active { display: block; opacity: 1; pointer-events: auto; }
+.overlay.active { display: block; }
 
 .container { padding: 20px; position: relative; z-index: 1; }
 .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid var(--secondary-cyan); }
