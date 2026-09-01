@@ -13,6 +13,8 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
     background-color: var(--bg-light); 
     margin: 0; padding: 0; overflow-x: hidden; color: var(--text-dark); 
+    overscroll-behavior-y: contain; /* يمنع تحديث الشاشة عند السحب للأسفل */
+    touch-action: pan-y;
 }
 
 .login-overlay { 
@@ -73,12 +75,6 @@ header h2 { margin: 0; font-size: 1.3rem; }
 .action-btn { background: var(--danger-red); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 5px; }
 .edit-btn { background: var(--secondary-cyan); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 .pay-btn { background: var(--accent-green); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-
-.pdf-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999999; flex-direction: column; align-items: center; justify-content: center; }
-.pdf-modal-content { width: 95%; max-width: 900px; height: 90%; background: white; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-.pdf-modal-header { background: var(--primary-blue); padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-.pdf-close-btn { background: none; border: none; color: white; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; padding: 0; }
-.pdf-modal-body { flex: 1; background: #eee; }
 
 .chart-container { margin-top: 15px; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed; }
 .chart-bar-wrap { margin-bottom: 10px; }
