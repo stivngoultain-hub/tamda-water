@@ -211,11 +211,12 @@ window.saveBylaws = function() {
 }
 
 // ==========================================
-// 7. إدارة المنخرطين (مصححة ومستجيبة)
+// 7. إدارة المنخرطين
 // ==========================================
 window.saveSubscriber = async function() {
     const counterEl = document.getElementById('newSubCounter');
     const nameEl = document.getElementById('newSubName');
+    const phoneEl = document.getElementById('newSubPhone');
     const locationEl = document.getElementById('newSubLocation');
     
     if (!counterEl || !nameEl) {
@@ -225,6 +226,7 @@ window.saveSubscriber = async function() {
 
     const counter = counterEl.value.trim();
     const name = nameEl.value.trim();
+    const phone = phoneEl ? phoneEl.value.trim() : '';
     const location = locationEl ? locationEl.value.trim() : '';
     
     if (!counter || !name) { 
@@ -242,6 +244,7 @@ window.saveSubscriber = async function() {
         await addDoc(collection(db, "subscribers"), {
             counter: counter,
             name: name,
+            phone: phone,
             location: location,
             lastReading: null,
             delayMonths: 0,
@@ -251,6 +254,7 @@ window.saveSubscriber = async function() {
         
         counterEl.value = ''; 
         nameEl.value = ''; 
+        if(phoneEl) phoneEl.value = '';
         if(locationEl) locationEl.value = '';
         
         showToast('تم حفظ المشترك بنجاح!');
@@ -286,7 +290,7 @@ window.renderSubscribers = function() {
         div.innerHTML = `
             <div class="list-info">
                 <strong>${sub.name} (عداد: ${sub.counter})</strong>
-                <span>الموقع: ${sub.location || 'غير محدد'} | قراءة سابقة: ${sub.lastReading !== null ? sub.lastReading : 'لا توجد'}</span>
+                <span>الهاتف: ${sub.phone || 'غير مسجل'} | الموقع: ${sub.location || 'غير محدد'}</span>
                 <span class="${(sub.debtAmount > 0) ? 'text-danger' : 'text-success'}">ديون: ${sub.debtAmount || 0} درهم (تأخير: ${sub.delayMonths || 0} أشهر)</span>
             </div>
             <button class="action-btn" onclick="deleteSubscriber('${sub.firestoreId}')">حذف</button>
@@ -329,7 +333,7 @@ window.renderDebts = function() {
         div.innerHTML = `
             <div class="list-info">
                 <strong style="color:var(--danger-red);">${sub.name} (عداد: ${sub.counter})</strong>
-                <span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span>
+                <span>الهاتف: ${sub.phone || 'غير مسجل'} | المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span>
             </div>
         `;
         container.appendChild(div);
@@ -370,7 +374,7 @@ window.autoFillSubscriber = function() {
 };
 
 // ==========================================
-// 9. العمليات المالية
+// 9. العمليات المالية والمسح الضوئي للمستندات
 // ==========================================
 window.updateFinancialDashboard = function() {
     const netBalance = totalIncome - totalExpense;
@@ -394,7 +398,7 @@ window.saveTransaction = async function() {
     
     if (amount <= 0 || !month) { showToast('المرجو إدخال المبلغ والشهر'); return; }
     
-    let fileName = 'بدون مرفق';
+    let fileName = 'وثيقة مسح ضوئي';
     if(fileInput && fileInput.files.length > 0) fileName = fileInput.files[0].name;
 
     let transactionObj = { month, type, amount, desc, fileName, timestamp: new Date().toISOString() };
@@ -433,7 +437,7 @@ window.renderTransactions = function() {
                 <strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">
                     ${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم
                 </strong>
-                <span>الوصف: ${t.desc} | الشهر: ${t.month} | المرفق: ${t.fileName}</span>
+                <span>الوصف: ${t.desc} | الشهر: ${t.month} | المستند: ${t.fileName}</span>
             </div>
             <button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button>
         `;
@@ -455,7 +459,7 @@ window.deleteTransaction = async function(firestoreId) {
 };
 
 // ==========================================
-// 10. حساب وفواتير الماء
+// 10. حساب وفواتير الماء وإرسال الواتساب
 // ==========================================
 window.calculateBill = function() {
     const counterNum = document.getElementById('counterNum').value || 'غير محدد';
@@ -578,6 +582,24 @@ window.saveBill = async function(isPaid) {
     }
 };
 
+window.sendWhatsAppNotification = function() {
+    const counterInput = document.getElementById('counterNum').value.trim();
+    const subNameStr = document.getElementById('subscriberName').value || 'المشترك';
+    const currentMonth = document.getElementById('billingMonth').value || 'الحالي';
+    
+    const sub = subscribers.find(s => s.counter == counterInput);
+    if (!sub || !sub.phone) {
+        showToast('رقم هاتف المشترك غير مسجل في ملفه!');
+        return;
+    }
+
+    let message = `مرحباً السيد(ة) ${subNameStr}،\nتعلَمكم جمعية تامدة للتنمية أن فاتورة استهلاك ماء الشرب لشهر ${currentMonth} هي: ${currentBillTotal} درهم.\nالمرجو المبادرة بالأداء وشكراً.`;
+    let encodedMessage = encodeURIComponent(message);
+    let whatsappUrl = `https://wa.me/${sub.phone}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+};
+
 // ==========================================
 // 11. الأرشيف
 // ==========================================
@@ -624,7 +646,7 @@ window.renderArchive = function() {
         html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 المداخيل والمصاريف:</h5>`;
         
         if(monthFinance.length > 0) {
-            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th>المرفق</th></tr></thead><tbody>`;
+            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th>المستند</th></tr></thead><tbody>`;
             monthFinance.forEach(f => {
                 let typeText = f.type === 'income' ? 'مدخول (+)' : 'مصروف (-)';
                 let colorClass = f.type === 'income' ? 'text-success' : 'text-danger';
