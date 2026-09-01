@@ -1,0 +1,13 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "stivngoultain-hub.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "stivngoultain-hub.github",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "تسيير ماء تامدة",
+  "description": "Gestion de l'eau potable de l'Association Tamda"
+}
