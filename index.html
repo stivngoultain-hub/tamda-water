@@ -107,15 +107,23 @@
                 <div class="form-group"><label>رقم العداد</label><input type="number" id="counterNum" oninput="autoFillSubscriber()"></div>
                 <div class="form-group"><label>شهر الاستهلاك</label><input type="month" id="billingMonth" onchange="calculateBill()"></div>
                 <div class="form-group"><label>اسم المشترك</label><input type="text" id="subscriberName" readonly style="background:#eee;"></div>
+                
                 <div class="form-group">
                     <label>القراءة السابقة (m³)</label>
                     <div style="display: flex; gap: 10px;">
                         <input type="number" id="prevReading" oninput="calculateBill()" style="flex:1;">
-                        <button type="button" class="btn btn-outline" style="margin-top:0; width:auto; padding:0 12px; font-size:0.85rem;" onclick="enablePrevEdit()">✏️ تعديل القراءة</button>
+                        <button type="button" class="btn btn-outline" style="margin-top:0; width:auto; padding:0 12px; font-size:0.85rem;" onclick="enableEdit('prevReading')">✏️ تعديل</button>
                     </div>
-                    <small id="prevReadingHint" style="color:var(--danger-red); display:none;">مغلقة (جُلبت من الشهر السابق). اضغط تعديل لتغييرها في حال الخطأ.</small>
                 </div>
-                <div class="form-group"><label>القراءة الحالية (m³)</label><input type="number" id="currReading" oninput="calculateBill()"></div>
+
+                <div class="form-group">
+                    <label>القراءة الحالية (m³)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="currReading" oninput="calculateBill()" style="flex:1;">
+                        <button type="button" class="btn btn-outline" style="margin-top:0; width:auto; padding:0 12px; font-size:0.85rem;" onclick="enableEdit('currReading')">✏️ تعديل</button>
+                    </div>
+                </div>
+
                 <div class="form-group"><label>أشهر التأخير المتراكمة</label><input type="number" id="delayMonths" value="0" min="0" oninput="calculateBill()"></div>
                 
                 <div class="form-group" style="background: #eef9ff; padding: 10px; border-radius: 8px; border: 1px dashed var(--secondary-cyan);">
@@ -130,7 +138,6 @@
 
             <div class="card" id="billResult" style="display: none; border-top: 4px solid var(--accent-green);">
                 <div class="print-header" style="display:none; text-align:center; margin-bottom:10px;">
-                    <img src="logo.png" alt="شعار الجمعية" style="width: 45px; height: 45px; object-fit: contain; margin-bottom: 5px;">
                     <h3 style="margin:0; font-size:1.1rem;">جمعية تامدة للتنمية</h3>
                     <p style="margin:2px 0; font-size:0.85rem;">وصل أداء استهلاك ماء الشرب</p>
                     <hr style="border:0; border-top:1px dashed #000; margin:8px 0;">
@@ -231,11 +238,14 @@
             </div>
         </div>
 
-        <!-- 9. الأرشيف وملف الاستهلاك الشهري الشامل -->
+        <!-- 9. الأرشيف وملف الاستهلاك الشهري الشامل (مخصص للمحتويات فقط بعيداً عن أي سيد بار) -->
         <div id="view-archive" class="view-section" style="display: none;">
             <div class="card">
-                <h3>🗂️ ملف الاستهلاك الشهري والأرشيف الشامل</h3>
-                <p class="no-print" style="color: #666; font-size: 0.9rem;">يجمع استهلاك كل عداد، ثمنه، وضعية الدفع، المجموع الكلي للاستهلاك، والمداخيل في ملف واحد.</p>
+                <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
+                    <h3 style="margin:0;">🗂️ ملف الاستهلاك الشهري والأرشيف الشامل</h3>
+                    <button class="btn btn-blue" style="margin:0; width:auto; padding:8px 15px; font-size:0.9rem;" onclick="window.print()">🖨️ طباعة الأرشيف الشامل كـ PDF</button>
+                </div>
+                <p class="no-print" style="color: #666; font-size: 0.9rem; margin-top:10px;">يجمع استهلاك كل عداد، ثمنه، وضعية الدفع، والمداخيل لشهر معين.</p>
                 <div id="archiveContainer" style="margin-top: 20px;"></div>
             </div>
         </div>
