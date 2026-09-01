@@ -1,10 +1,10 @@
 // ==========================================
-// 1. استيراد مكتبات Firebase الأساسية
+// 1. استيراد مكتبات Firebase (نسخة مستقرة)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// إعدادات الربط بمشروعك على فایربیس
+// إعدادات الربط السحابي لمشروعك
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
   authDomain: "tamda-water-management.firebaseapp.com",
@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ==========================================
-// 2. المتطلبات والثوابت العامة
+// 2. الثوابت والمتغيرات العامة للتطبيق
 // ==========================================
 const secureCodes = { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال' };
@@ -52,9 +52,9 @@ const views = {
 };
 
 // ==========================================
-// 3. التحميل الأولي وجلب البيانات من السحابة بأمان
+// 3. التحميل الأولي وجلب البيانات
 // ==========================================
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     checkAuth(); 
     loadSettings();
     
@@ -64,20 +64,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(bylawInput) bylawInput.value = savedBylaw;
     if(bylawDisplay) bylawDisplay.textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
 
-    // جلب البيانات من Firestore بسلاسة دون التسبب في جمود التطبيق
-    await loadDataFromCloud();
+    loadDataFromCloud();
 });
 
 async function loadDataFromCloud() {
     try {
-        // جلب المنخرطين
         const subSnapshot = await getDocs(collection(db, "subscribers"));
         subscribers = [];
         subSnapshot.forEach((docSnap) => {
             subscribers.push({ firestoreId: docSnap.id, ...docSnap.data() });
         });
 
-        // جلب العمليات المالية
         const transSnapshot = await getDocs(collection(db, "transactions"));
         transactionsList = [];
         totalIncome = 0;
@@ -85,11 +82,10 @@ async function loadDataFromCloud() {
         transSnapshot.forEach((docSnap) => {
             let t = docSnap.data();
             transactionsList.push({ firestoreId: docSnap.id, ...t });
-            if(t.type === 'income') totalIncome += t.amount; 
-            else totalExpense += t.amount;
+            if(t.type === 'income') totalIncome += Number(t.amount || 0); 
+            else totalExpense += Number(t.amount || 0);
         });
 
-        // جلب الأرشيفات
         const billsSnap = await getDocs(collection(db, "archive_bills"));
         archiveBills = [];
         billsSnap.forEach(d => archiveBills.push(d.data()));
@@ -102,12 +98,12 @@ async function loadDataFromCloud() {
         updateFinancialDashboard();
         renderTransactions();
     } catch (e) {
-        console.error("خطأ في جلب البيانات السحابية، يتم الاعتماد على الذاكرة المحلية:", e);
+        console.error("خطأ في جلب البيانات: ", e);
     }
 }
 
 // ==========================================
-// 4. نظام تسجيل الدخول
+// 4. تسجيل الدخول
 // ==========================================
 window.checkAuth = function() {
     if(sessionStorage.getItem('tamda_auth') === 'true') {
@@ -146,7 +142,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. الواجهات والتنقل
+// 5. التنقل والواجهات
 // ==========================================
 function toggleSidebar() { 
     if(sidebar) sidebar.classList.toggle('active'); 
@@ -215,17 +211,34 @@ window.saveBylaws = function() {
 }
 
 // ==========================================
-// 7. إدارة المنخرطين
+// 7. إدارة المنخرطين (مصححة ومستجيبة)
 // ==========================================
 window.saveSubscriber = async function() {
-    const counter = document.getElementById('newSubCounter').value.trim();
-    const name = document.getElementById('newSubName').value.trim();
-    const location = document.getElementById('newSubLocation').value.trim();
+    const counterEl = document.getElementById('newSubCounter');
+    const nameEl = document.getElementById('newSubName');
+    const locationEl = document.getElementById('newSubLocation');
     
-    if (!counter || !name) { showToast('المرجو إدخال رقم العداد والاسم'); return; }
-    if (subscribers.find(s => s.counter == counter)) { showToast('العداد مسجل مسبقاً!'); return; }
+    if (!counterEl || !nameEl) {
+        showToast('خطأ في عناصر الصفحة');
+        return;
+    }
+
+    const counter = counterEl.value.trim();
+    const name = nameEl.value.trim();
+    const location = locationEl ? locationEl.value.trim() : '';
+    
+    if (!counter || !name) { 
+        showToast('المرجو إدخال رقم العداد والاسم'); 
+        return; 
+    }
+    
+    if (subscribers.find(s => s.counter == counter)) { 
+        showToast('العداد مسجل مسبقاً!'); 
+        return; 
+    }
     
     try {
+        showToast('جاري الحفظ...');
         await addDoc(collection(db, "subscribers"), {
             counter: counter,
             name: name,
@@ -236,16 +249,17 @@ window.saveSubscriber = async function() {
             lastBilledMonth: ''
         });
         
-        document.getElementById('newSubCounter').value = ''; 
-        document.getElementById('newSubName').value = ''; 
-        document.getElementById('newSubLocation').value = '';
+        counterEl.value = ''; 
+        nameEl.value = ''; 
+        if(locationEl) locationEl.value = '';
+        
         showToast('تم حفظ المشترك بنجاح!');
         await loadDataFromCloud();
     } catch (e) {
         console.error("خطأ في الحفظ: ", e);
         showToast('فشل الحفظ، تحقق من الاتصال بالإنترنت');
     }
-}
+};
 
 window.renderSubscribers = function() {
     const container = document.getElementById('subscribersListContainer');
@@ -262,7 +276,7 @@ window.renderSubscribers = function() {
     if(dashSubEl) dashSubEl.textContent = subscribers.length;
     
     let totalDebts = 0; 
-    subscribers.forEach(s => totalDebts += (s.debtAmount || 0));
+    subscribers.forEach(s => totalDebts += Number(s.debtAmount || 0));
     const dashDebtsEl = document.getElementById('dashDebts');
     if(dashDebtsEl) dashDebtsEl.textContent = totalDebts + ' درهم';
 
@@ -279,7 +293,7 @@ window.renderSubscribers = function() {
         `;
         container.appendChild(div);
     });
-}
+};
 
 window.deleteSubscriber = async function(firestoreId) {
     if(confirm('متأكد من حذف المشترك؟')) {
@@ -292,17 +306,17 @@ window.deleteSubscriber = async function(firestoreId) {
             showToast('فشل الحذف');
         }
     }
-}
+};
 
 // ==========================================
-// 8. الديون والعدادات
+// 8. الديون والأرصدة
 // ==========================================
 window.renderDebts = function() {
     const container = document.getElementById('debtsListContainer');
     if(!container) return;
     container.innerHTML = '';
     
-    const debtors = subscribers.filter(s => s.debtAmount > 0);
+    const debtors = subscribers.filter(s => Number(s.debtAmount) > 0);
     if(debtors.length === 0) { 
         container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً. جميع الفواتير خالصة.</p>'; 
         return; 
@@ -320,7 +334,7 @@ window.renderDebts = function() {
         `;
         container.appendChild(div);
     });
-}
+};
 
 function getNextMonth(monthString) {
     if (!monthString) return '';
@@ -353,10 +367,10 @@ window.autoFillSubscriber = function() {
         document.getElementById('prevReadingHint').style.display = 'none'; 
         document.getElementById('delayMonths').value = 0;
     }
-}
+};
 
 // ==========================================
-// 9. العمليات المالية والمداخيل
+// 9. العمليات المالية
 // ==========================================
 window.updateFinancialDashboard = function() {
     const netBalance = totalIncome - totalExpense;
@@ -369,7 +383,7 @@ window.updateFinancialDashboard = function() {
     if(expReport) expReport.textContent = totalExpense + ' درهم';
     if(netReport) netReport.textContent = netBalance + ' درهم';
     if(dashBal) dashBal.textContent = netBalance + ' درهم';
-}
+};
 
 window.saveTransaction = async function() {
     const month = document.getElementById('transMonth').value;
@@ -395,10 +409,10 @@ window.saveTransaction = async function() {
         showToast('تم تسجيل العملية بنجاح');
         await loadDataFromCloud();
     } catch (e) {
-        console.error("خطأ في الحفظ: ", e);
+        console.error("خطأ في حفظ العملية: ", e);
         showToast('فشل الحفظ');
     }
-}
+};
 
 window.renderTransactions = function() {
     const container = document.getElementById('transactionsListContainer');
@@ -425,7 +439,7 @@ window.renderTransactions = function() {
         `;
         container.appendChild(div);
     });
-}
+};
 
 window.deleteTransaction = async function(firestoreId) {
     if(confirm('حذف هذه العملية؟')) {
@@ -438,7 +452,7 @@ window.deleteTransaction = async function(firestoreId) {
             showToast('فشل الحذف');
         }
     }
-}
+};
 
 // ==========================================
 // 10. حساب وفواتير الماء
@@ -497,7 +511,7 @@ window.calculateBill = function() {
     
     document.getElementById('billResult').style.display = 'block'; 
     showToast('تم الحساب بنجاح');
-}
+};
 
 window.saveBill = async function(isPaid) {
     if(currentBillTotal > 0) {
@@ -562,7 +576,7 @@ window.saveBill = async function(isPaid) {
     } else { 
         showToast('يرجى حساب الفاتورة أولاً'); 
     }
-}
+};
 
 // ==========================================
 // 11. الأرشيف
@@ -625,7 +639,7 @@ window.renderArchive = function() {
         box.innerHTML = html;
         container.appendChild(box);
     });
-}
+};
 
 window.printMonthArchive = function(month) {
     let printContent = document.getElementById(`print-month-${month}`).innerHTML;
@@ -634,4 +648,4 @@ window.printMonthArchive = function(month) {
     window.print();
     document.body.innerHTML = originalBody;
     location.reload(); 
-}
+};
