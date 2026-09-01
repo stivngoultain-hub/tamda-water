@@ -29,10 +29,11 @@ header {
 header h2 { margin: 0; font-size: 1.3rem; }
 .menu-btn { font-size: 26px; cursor: pointer; background: none; border: none; color: white; padding: 5px; line-height: 1; }
 
+/* إصلاح السيد بار ليبقى مخفياً تماماً ولا يظهر إلا بالضغط */
 .sidebar { 
-    height: 100%; width: 260px; position: fixed; top: 0; right: -260px; 
+    height: 100%; width: 280px; position: fixed; top: 0; right: -280px; 
     background-color: white; box-shadow: -5px 0 20px rgba(0,0,0,0.25); 
-    transition: right 0.3s ease-in-out; z-index: 100000; padding-top: 50px; 
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100000; padding-top: 50px; 
     display: flex; flex-direction: column; overflow-y: auto; 
 }
 .sidebar.active { right: 0; }
@@ -83,12 +84,18 @@ header h2 { margin: 0; font-size: 1.3rem; }
 .edit-btn { background: var(--secondary-cyan); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 .pay-btn { background: var(--accent-green); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-/* تصميم المبيانات والرسوم البيانية (Charts) */
+/* تصميم المبيانات والرسوم البيانية */
 .chart-container { margin-top: 15px; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed; }
 .chart-bar-wrap { margin-bottom: 10px; }
 .chart-bar-label { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; color: var(--primary-blue); }
 .chart-bar-bg { background: #e0e0e0; border-radius: 6px; height: 16px; width: 100%; overflow: hidden; }
 .chart-bar-fill { background: var(--secondary-cyan); height: 100%; border-radius: 6px; transition: width 0.5s ease; }
+
+@keyframes pulseBadge {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
 
 .archive-month-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 .archive-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; }
