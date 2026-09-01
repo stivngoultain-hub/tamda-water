@@ -31,7 +31,7 @@ let transactionsList = []; let donationsList = [];
 let archiveBills = []; let archiveFinance = [];
 let capitalLedger = []; 
 
-const SESSION_TIMEOUT = 3 * 60 * 1000; // 3 دقائق
+const SESSION_TIMEOUT = 3 * 60 * 1000; // 3 دقائق خمول قصوى
 
 const views = {
     '🏠 لوحة القيادة': 'view-dashboard', 
@@ -51,9 +51,6 @@ const views = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // تنظيف أي بيانات دخول قديمة (شبحية) عالقة في الذاكرة الدائمة
-    ['tamda_auth', 'tamda_role', 'tamda_counter', 'tamda_subname', 'tamda_last_active'].forEach(k => localStorage.removeItem(k));
-
     loadLocalData();
     loadSettings();
     checkAuth(); 
@@ -70,12 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if(navigator.onLine) { loadDataFromCloud(); }
     
-    // تسجيل التفاعل لتجديد مهلة الـ 3 دقائق
+    // مراقبة النشاط لتحديث مهلة الخمول (3 دقائق)
     ['click', 'touchstart', 'keypress', 'scroll'].forEach(evt => document.addEventListener(evt, updateLastActive));
     setInterval(checkSessionTimeout, 10000);
 });
 
-// ================== نظام الأمان والجلسات ==================
+// ================== نظام الأمان والجلسات المستقر ==================
 
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
@@ -85,46 +82,48 @@ function updateOnlineStatus(isOnline) {
 }
 
 function updateLastActive() {
-    if(sessionStorage.getItem('tamda_auth') === 'true') {
-        sessionStorage.setItem('tamda_last_active', Date.now());
+    if(localStorage.getItem('tamda_auth') === 'true') {
+        localStorage.setItem('tamda_last_active', Date.now());
     }
 }
 
 function checkSessionTimeout() {
-    if(sessionStorage.getItem('tamda_auth') === 'true') {
-        let last = parseInt(sessionStorage.getItem('tamda_last_active') || '0');
+    if(localStorage.getItem('tamda_auth') === 'true') {
+        let last = parseInt(localStorage.getItem('tamda_last_active') || '0');
         if(last > 0 && (Date.now() - last > SESSION_TIMEOUT)) {
-            logout(true); // طرد بسبب الخمول لـ 3 دقائق
+            logout(true); // تسجيل خروج تلقائي لمرور 3 دقائق دون تفاعل
         }
     }
 }
 
 function checkAuth() {
     try {
-        let isAuth = sessionStorage.getItem('tamda_auth') === 'true';
+        let isAuth = localStorage.getItem('tamda_auth') === 'true';
         const loginScreen = document.getElementById('loginScreen');
         const appContent = document.getElementById('appContent');
 
-        // التحقق الاستباقي لمهلة 3 دقائق قبل الدخول
         if (isAuth) {
-            let lastActive = parseInt(sessionStorage.getItem('tamda_last_active') || '0');
+            let lastActive = parseInt(localStorage.getItem('tamda_last_active') || '0');
             if (lastActive > 0 && (Date.now() - lastActive > SESSION_TIMEOUT)) {
-                sessionStorage.clear();
+                localStorage.removeItem('tamda_auth');
+                localStorage.removeItem('tamda_role');
+                localStorage.removeItem('tamda_counter');
+                localStorage.removeItem('tamda_subname');
+                localStorage.removeItem('tamda_last_active');
                 isAuth = false;
-                alert("انتهت الجلسة لمرور 3 دقائق دون نشاط. يرجى تسجيل الدخول مجدداً لحماية البيانات.");
             }
         }
 
         if(isAuth) {
             if(loginScreen) loginScreen.style.display = 'none';
             if(appContent) appContent.style.display = 'block';
-            sessionStorage.setItem('tamda_last_active', Date.now());
+            localStorage.setItem('tamda_last_active', Date.now());
             
-            let role = sessionStorage.getItem('tamda_role');
+            let role = localStorage.getItem('tamda_role');
             if (role === 'subscriber') {
                 document.getElementById('adminLinks').style.display = 'none';
                 document.getElementById('subscriberLinks').style.display = 'block';
-                document.getElementById('activeUserLabel').textContent = "بوابة المشتركين (عداد: " + sessionStorage.getItem('tamda_counter') + ")";
+                document.getElementById('activeUserLabel').textContent = "بوابة المشتركين (عداد: " + localStorage.getItem('tamda_counter') + ")";
                 navigateTo('👤 فواتيري وطلباتي');
             } else {
                 document.getElementById('adminLinks').style.display = 'block';
@@ -159,11 +158,11 @@ function authenticate() {
             let sub = subscribers.find(s => String(s.counter).trim() === counter && s.pin && s.pin === code);
             
             if(sub) {
-                sessionStorage.setItem('tamda_auth', 'true'); 
-                sessionStorage.setItem('tamda_role', 'subscriber');
-                sessionStorage.setItem('tamda_counter', counter);
-                sessionStorage.setItem('tamda_subname', sub.name);
-                sessionStorage.setItem('tamda_last_active', Date.now());
+                localStorage.setItem('tamda_auth', 'true'); 
+                localStorage.setItem('tamda_role', 'subscriber');
+                localStorage.setItem('tamda_counter', counter);
+                localStorage.setItem('tamda_subname', sub.name);
+                localStorage.setItem('tamda_last_active', Date.now());
                 err.style.display = 'none';
                 codeInput.value = '';
                 checkAuth();
@@ -174,9 +173,9 @@ function authenticate() {
             }
         } else {
             if(secureCodes[role] === code) {
-                sessionStorage.setItem('tamda_auth', 'true'); 
-                sessionStorage.setItem('tamda_role', role);
-                sessionStorage.setItem('tamda_last_active', Date.now());
+                localStorage.setItem('tamda_auth', 'true'); 
+                localStorage.setItem('tamda_role', role);
+                localStorage.setItem('tamda_last_active', Date.now());
                 recordLoginStats(role);
                 err.style.display = 'none';
                 codeInput.value = '';
@@ -194,10 +193,13 @@ function authenticate() {
 }
 
 function logout(isTimeout = false) { 
-    // مسح الجلسة فوراً
-    sessionStorage.clear();
+    // مسح مفاتيح المصادقة عند تسجيل الخروج المتعمد أو انتهاء المهلة
+    localStorage.removeItem('tamda_auth');
+    localStorage.removeItem('tamda_role');
+    localStorage.removeItem('tamda_counter');
+    localStorage.removeItem('tamda_subname');
+    localStorage.removeItem('tamda_last_active');
     
-    // إعادة تعيين واجهة الدخول
     const loginCode = document.getElementById('loginCode');
     const loginError = document.getElementById('loginError');
     if(loginCode) loginCode.value = '';
@@ -206,11 +208,14 @@ function logout(isTimeout = false) {
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
     
-    // التحويل السلس لواجهة الدخول
     const appContent = document.getElementById('appContent');
     const loginScreen = document.getElementById('loginScreen');
     if(appContent) appContent.style.display = 'none';
     if(loginScreen) loginScreen.style.display = 'flex';
+    
+    if(isTimeout === true) {
+        alert("تم تسجيل الخروج تلقائياً لمرور 3 دقائق دون نشاط لحماية البيانات.");
+    }
 }
 
 function handleEnter(e) { if (e.key === 'Enter') authenticate(); }
@@ -338,8 +343,8 @@ async function loadDataFromCloud() {
 
         saveLocalData(); recalculateFinancials();
         
-        if(sessionStorage.getItem('tamda_auth') === 'true') {
-            if(sessionStorage.getItem('tamda_role') === 'subscriber') {
+        if(localStorage.getItem('tamda_auth') === 'true') {
+            if(localStorage.getItem('tamda_role') === 'subscriber') {
                 renderSubPortalBills();
             } else {
                 renderSubscribers(); 
@@ -470,7 +475,7 @@ async function deleteSubscriber(id) {
 
 // ================== بوابات ونظام المشتركين والشكايات ==================
 function renderSubPortalBills() {
-    let subCounter = sessionStorage.getItem('tamda_counter'); let subName = sessionStorage.getItem('tamda_subname'); if(!subCounter) return;
+    let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname'); if(!subCounter) return;
     document.getElementById('portalSubName').textContent = subName; document.getElementById('portalSubCounter').textContent = subCounter;
     const container = document.getElementById('portalBillsContainer'); container.innerHTML = '';
     let myBills = archiveBills.filter(b => b.counter == subCounter); myBills.sort((a,b) => b.month.localeCompare(a.month)); 
@@ -482,7 +487,7 @@ function renderSubPortalBills() {
 }
 async function submitComplaint() {
     const text = document.getElementById('complaintText').value.trim(); if(!text) { showToast('المرجو كتابة الشكاية أو الطلب أولاً'); return; }
-    let subCounter = sessionStorage.getItem('tamda_counter'); let subName = sessionStorage.getItem('tamda_subname');
+    let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname');
     let comp = { firestoreId: 'local_' + Date.now(), counter: subCounter, name: subName, text: text, date: new Date().toLocaleDateString('ar-MA'), status: 'جديدة' };
     complaintsList.push(comp); saveLocalData(); if(navigator.onLine) { await addDoc(collection(db, "complaints"), comp); } else { queueOfflineAction('add_complaint', comp); }
     document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
