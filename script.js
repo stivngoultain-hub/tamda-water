@@ -17,9 +17,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ==========================================
-// 2. المتغيرات والثوابت العامة
+// 2. المتغيرات والثوابت العامة ونظام الأوفلاين
 // ==========================================
-const secureCodes = { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
+let secureCodes = JSON.parse(localStorage.getItem('tamda_codes')) || { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال' };
 
 const sidebar = document.getElementById('sidebar');
@@ -49,11 +49,12 @@ const views = {
 };
 
 // ==========================================
-// 3. التحميل الأولي وجلب البيانات
+// 3. التحميل الأولي والعمل بدون إنترنت (Offline & Sync)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth(); 
     loadSettings();
+    loadLocalData(); // تحميل البيانات المخزنة محلياً للسرعة والعمل أوفلاين
     
     let savedBylaw = localStorage.getItem('tamda_bylaws') || '';
     const bylawInput = document.getElementById('bylawInput');
@@ -61,8 +62,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if(bylawInput) bylawInput.value = savedBylaw;
     if(bylawDisplay) bylawDisplay.textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
 
-    loadDataFromCloud();
+    // مراقبة حالة الاتصال بالإنترنت ومزامنة البيانات المعلقة عند العودة
+    window.addEventListener('online', () => {
+        updateOnlineStatus(true);
+        syncOfflineQueue();
+    });
+    window.addEventListener('offline', () => {
+        updateOnlineStatus(false);
+    });
+    
+    updateOnlineStatus(navigator.onLine);
+    if(navigator.onLine) {
+        loadDataFromCloud();
+    }
 });
+
+function updateOnlineStatus(isOnline) {
+    const statusEl = document.getElementById('connectionStatus');
+    if (!statusEl) return;
+    if (isOnline) {
+        statusEl.textContent = "متصل (Online)";
+        statusEl.style.background = "#25D366";
+    } else {
+        statusEl.textContent = "غير متصل (Offline)";
+        statusEl.style.background = "#c1272d";
+    }
+}
+
+function loadLocalData() {
+    subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
+    transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
+    archiveBills = JSON.parse(localStorage.getItem('local_bills')) || [];
+    archiveFinance = JSON.parse(localStorage.getItem('local_fin')) || [];
+    
+    recalculateFinancials();
+    renderSubscribers();
+    updateFinancialDashboard();
+    renderTransactions();
+    renderDebts();
+}
+
+function saveLocalData() {
+    localStorage.setItem('local_subs', JSON.stringify(subscribers));
+    localStorage.setItem('local_trans', JSON.stringify(transactionsList));
+    localStorage.setItem('local_bills', JSON.stringify(archiveBills));
+    localStorage.setItem('local_fin', JSON.stringify(archiveFinance));
+}
+
+function recalculateFinancials() {
+    totalIncome = 0;
+    totalExpense = 0;
+    transactionsList.forEach(t => {
+        if(t.type === 'income') totalIncome += Number(t.amount || 0);
+        else totalExpense += Number(t.amount || 0);
+    });
+}
 
 async function loadDataFromCloud() {
     try {
@@ -71,39 +125,66 @@ async function loadDataFromCloud() {
         subSnapshot.forEach((docSnap) => {
             subscribers.push({ firestoreId: docSnap.id, ...docSnap.data() });
         });
-        
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
 
         const transSnapshot = await getDocs(collection(db, "transactions"));
         transactionsList = [];
-        totalIncome = 0;
-        totalExpense = 0;
         transSnapshot.forEach((docSnap) => {
             let t = docSnap.data();
             transactionsList.push({ firestoreId: docSnap.id, ...t });
-            if(t.type === 'income') totalIncome += Number(t.amount || 0); 
-            else totalExpense += Number(t.amount || 0);
         });
 
         const billsSnap = await getDocs(collection(db, "archive_bills"));
         archiveBills = [];
-        billsSnap.forEach(d => archiveBills.push(d.data()));
+        billsSnap.forEach(d => archiveBills.push({ firestoreId: d.id, ...d.data() }));
 
         const finSnap = await getDocs(collection(db, "archive_finance"));
         archiveFinance = [];
-        finSnap.forEach(d => archiveFinance.push(d.data()));
+        finSnap.forEach(d => archiveFinance.push({ firestoreId: d.id, ...d.data() }));
 
+        saveLocalData();
+        recalculateFinancials();
         renderSubscribers();
         updateFinancialDashboard();
         renderTransactions();
         renderDebts();
     } catch (e) {
-        console.error("خطأ في جلب البيانات: ", e);
+        console.log("العمل دون إنترنت - جارٍ استخدام البيانات المحلية.");
+    }
+}
+
+// نظام طابور العمليات غير المزامنة في حالة غياب الإنترنت
+async function queueOfflineAction(actionType, data) {
+    let queue = JSON.parse(localStorage.getItem('offline_queue')) || [];
+    queue.push({ actionType, data, timestamp: new Date().toISOString() });
+    localStorage.setItem('offline_queue', JSON.stringify(queue));
+}
+
+async function syncOfflineQueue() {
+    let queue = JSON.parse(localStorage.getItem('offline_queue')) || [];
+    if (queue.length === 0) return;
+    
+    showToast('جاري مزامنة العمليات المعلقة مع السحاب...');
+    try {
+        for (let item of queue) {
+            if (item.actionType === 'add_subscriber') {
+                await addDoc(collection(db, "subscribers"), item.data);
+            } else if (item.actionType === 'add_transaction') {
+                await addDoc(collection(db, "transactions"), item.data);
+            } else if (item.actionType === 'add_bill') {
+                await addDoc(collection(db, "archive_bills"), item.data);
+            }
+        }
+        localStorage.removeItem('offline_queue');
+        showToast('تمت مزامنة جميع العمليات بنجاح!');
+        loadDataFromCloud();
+    } catch (e) {
+        console.error("فشل مزامنة الطابور:", e);
     }
 }
 
 // ==========================================
-// 4. المصادقة وتسجيل الدخول
+// 4. المصادقة وتغيير كلمة السر
 // ==========================================
 window.checkAuth = function() {
     if(sessionStorage.getItem('tamda_auth') === 'true') {
@@ -140,8 +221,21 @@ window.logout = function() {
     location.reload(); 
 }
 
+window.updatePassword = function() {
+    const role = document.getElementById('targetRole').value;
+    const newCode = document.getElementById('newSecretCode').value.trim();
+    if (!newCode || newCode.length < 4) {
+        showToast('المرجو إدخال رمز سري صحيح (4 أرقام على الأقل)');
+        return;
+    }
+    secureCodes[role] = newCode;
+    localStorage.setItem('tamda_codes', JSON.stringify(secureCodes));
+    document.getElementById('newSecretCode').value = '';
+    showToast(`تم تحديث الرمز السري لـ (${roleNames[role]}) بنجاح!`);
+};
+
 // ==========================================
-// 5. التنقل وإغلاق القائمة نهائياً في الأرشيف
+// 5. التنقل وإغلاق القائمة الجانبية
 // ==========================================
 window.toggleSidebar = function() { 
     if (sidebar) sidebar.classList.toggle('active'); 
@@ -156,19 +250,8 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق قسري وفوري للـ Sidebar والـ Overlay في جميع الأحوال
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
-
-    // إذا كان القسم هو الأرشيف، نقوم بإخفاء الـ Sidebar برمجياً تماماً لمنع ظهورها كلياً
-    if (sidebar) {
-        if (pageName === '🗄️ الأرشيف والتخزين') {
-            sidebar.style.visibility = 'hidden';
-            sidebar.style.right = '-300px';
-        } else {
-            sidebar.style.visibility = 'visible';
-        }
-    }
 
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     
@@ -221,7 +304,7 @@ window.saveBylaws = function() {
 }
 
 // ==========================================
-// 7. إدارة المنخرطين
+// 7. إدارة المنخرطين (أوفلاين وأونلاين)
 // ==========================================
 window.saveSubscriber = async function() {
     const editingId = document.getElementById('editingSubId').value;
@@ -239,23 +322,34 @@ window.saveSubscriber = async function() {
     if (!counter || !name) { showToast('المرجو إدخال رقم العداد والاسم'); return; }
     
     try {
-        showToast('جاري الحفظ...');
         if (editingId) {
-            await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location });
+            let sub = subscribers.find(s => s.firestoreId === editingId);
+            if(sub) { sub.counter = counter; sub.name = name; sub.phone = phone; sub.location = location; }
+            await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location }).catch(() => {});
             showToast('تم تعديل بيانات المشترك بنجاح!');
             resetSubForm();
         } else {
             if (subscribers.find(s => s.counter == counter)) { showToast('العداد مسجل مسبقاً!'); return; }
-            await addDoc(collection(db, "subscribers"), {
+            let newSub = {
+                firestoreId: 'local_' + Date.now(),
                 counter: counter, name: name, phone: phone, location: location,
                 lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: ''
-            });
+            };
+            subscribers.push(newSub);
+            subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
+            
+            if (navigator.onLine) {
+                await addDoc(collection(db, "subscribers"), newSub);
+            } else {
+                queueOfflineAction('add_subscriber', newSub);
+            }
             counterEl.value = ''; nameEl.value = ''; if(phoneEl) phoneEl.value = ''; if(locationEl) locationEl.value = '';
-            showToast('تم حفظ المشترك بنجاح!');
+            showToast('تم حفظ المشترك بنجاح (وضع بدون إنترنت مدعوم)');
         }
-        await loadDataFromCloud();
+        saveLocalData();
+        renderSubscribers();
     } catch (e) {
-        showToast('فشل الحفظ، تحقق من الإنترنت');
+        showToast('تم الحفظ محلياً وسيتم المزامنة لاحقاً');
     }
 };
 
@@ -324,15 +418,19 @@ window.renderSubscribers = function() {
 window.deleteSubscriber = async function(firestoreId) {
     if(confirm('متأكد من حذف المشترك؟')) {
         try {
-            await deleteDoc(doc(db, "subscribers", firestoreId));
+            subscribers = subscribers.filter(s => s.firestoreId !== firestoreId);
+            saveLocalData();
+            if(navigator.onLine && !firestoreId.startsWith('local_')) {
+                await deleteDoc(doc(db, "subscribers", firestoreId));
+            }
             showToast('تم الحذف بنجاح');
-            await loadDataFromCloud();
+            renderSubscribers();
         } catch (e) { showToast('فشل الحذف'); }
     }
 };
 
 // ==========================================
-// 8. الديون والأرصدة
+// 8. الديون والأرصدة واستخلاص الديون
 // ==========================================
 window.renderDebts = function() {
     const container = document.getElementById('debtsListContainer');
@@ -367,23 +465,35 @@ window.renderDebts = function() {
 window.collectDebt = async function(firestoreId, amount, counter, name) {
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم) للمشترك ${name} (عداد ${counter})؟`)) {
         try {
-            await updateDoc(doc(db, "subscribers", firestoreId), {
-                debtAmount: 0,
-                delayMonths: 0
-            });
+            let sub = subscribers.find(s => s.firestoreId === firestoreId);
+            if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; }
 
             let nowMonth = new Date().toISOString().slice(0, 7);
-            await addDoc(collection(db, "transactions"), {
+            let newTrans = {
+                firestoreId: 'local_' + Date.now(),
                 month: nowMonth,
                 type: 'income',
                 amount: Number(amount),
                 desc: `استخلاص دين متأخر - عداد: ${counter} (${name})`,
                 fileName: 'استخلاص دين',
                 timestamp: new Date().toISOString()
-            });
+            };
+            transactionsList.push(newTrans);
+            recalculateFinancials();
+            saveLocalData();
 
-            showToast('تم استخلاص الدين وتسجيله في المداخيل بنجاح!');
-            await loadDataFromCloud();
+            if (navigator.onLine) {
+                await addDoc(collection(db, "transactions"), newTrans);
+                if(!firestoreId.startsWith('local_')) {
+                    await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 });
+                }
+            } else {
+                queueOfflineAction('add_transaction', newTrans);
+            }
+
+            showToast('تم استخلاص الدين وتسجيله بنجاح!');
+            renderDebts();
+            updateFinancialDashboard();
         } catch (e) {
             showToast('فشل عملية الاستخلاص');
         }
@@ -453,16 +563,29 @@ window.saveTransaction = async function() {
     let fileName = 'وثيقة مسح ضوئي';
     if(fileInput && fileInput.files.length > 0) fileName = fileInput.files[0].name;
 
-    let transactionObj = { month, type, amount, desc, fileName, timestamp: new Date().toISOString() };
-    try {
+    let transactionObj = {
+        firestoreId: 'local_' + Date.now(),
+        month, type, amount, desc, fileName, timestamp: new Date().toISOString()
+    };
+    
+    transactionsList.push(transactionObj);
+    archiveFinance.push(transactionObj);
+    recalculateFinancials();
+    saveLocalData();
+
+    if (navigator.onLine) {
         await addDoc(collection(db, "transactions"), transactionObj);
         await addDoc(collection(db, "archive_finance"), transactionObj);
-        document.getElementById('transAmount').value = ''; 
-        document.getElementById('transDesc').value = ''; 
-        if(fileInput) fileInput.value = '';
-        showToast('تم تسجيل العملية بنجاح');
-        await loadDataFromCloud();
-    } catch (e) { showToast('فشل الحفظ'); }
+    } else {
+        queueOfflineAction('add_transaction', transactionObj);
+    }
+
+    document.getElementById('transAmount').value = ''; 
+    document.getElementById('transDesc').value = ''; 
+    if(fileInput) fileInput.value = '';
+    showToast('تم تسجيل العملية بنجاح (أوفلاين مدعوم)');
+    renderTransactions();
+    updateFinancialDashboard();
 };
 
 window.renderTransactions = function() {
@@ -488,9 +611,16 @@ window.renderTransactions = function() {
 window.deleteTransaction = async function(firestoreId) {
     if(confirm('حذف هذه العملية؟')) {
         try {
-            await deleteDoc(doc(db, "transactions", firestoreId));
+            transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId);
+            archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId);
+            recalculateFinancials();
+            saveLocalData();
+            if(navigator.onLine && !firestoreId.startsWith('local_')) {
+                await deleteDoc(doc(db, "transactions", firestoreId));
+            }
             showToast('تم الحذف بنجاح');
-            await loadDataFromCloud();
+            renderTransactions();
+            updateFinancialDashboard();
         } catch (e) { showToast('فشل الحذف'); }
     }
 };
@@ -590,6 +720,7 @@ window.saveBill = async function(isPaid) {
         const sub = subscribers.find(s => s.counter == counterInput);
         
         let billArchiveObj = {
+            firestoreId: 'local_' + Date.now(),
             month: currentMonth,
             counter: counterInput,
             name: subNameStr,
@@ -604,31 +735,42 @@ window.saveBill = async function(isPaid) {
         };
 
         try {
-            await addDoc(collection(db, "archive_bills"), billArchiveObj);
+            archiveBills.push(billArchiveObj);
 
             if (sub) {
                 let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1);
                 let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal);
-                await updateDoc(doc(db, "subscribers", sub.firestoreId), {
-                    lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt
-                });
+                sub.lastReading = curr;
+                sub.lastBilledMonth = currentMonth;
+                sub.delayMonths = newDelay;
+                sub.debtAmount = newDebt;
+                
+                if(navigator.onLine && !sub.firestoreId.startsWith('local_')) {
+                    await updateDoc(doc(db, "subscribers", sub.firestoreId), {
+                        lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt
+                    }).catch(() => {});
+                }
             }
 
             if (isPaid && currentBillTotal > 0) {
-                await addDoc(collection(db, "transactions"), {
+                let transObj = {
+                    firestoreId: 'local_' + Date.now(),
                     month: currentMonth, type: 'income', amount: currentBillTotal,
                     desc: `استخلاص فاتورة ماء - عداد: ${counterInput} (${subNameStr})`,
                     fileName: 'فاتورة أوتوماتيكية', timestamp: new Date().toISOString()
-                });
+                };
+                transactionsList.push(transObj);
+                archiveFinance.push(transObj);
+                recalculateFinancials();
+                if(navigator.onLine) addDoc(collection(db, "transactions"), transObj);
             }
 
-            if (currentConsumptionData > 20 && sub && sub.phone) {
-                setTimeout(() => {
-                    if (confirm(`تنبيه: هذا المشترك (${subNameStr}) تجاوز استهلاكه 20 طناً (${currentConsumptionData} m³).\nهل تريد إرسال إنذار ترشيد الاستهلاك عبر واتساب؟`)) {
-                        let alertMsg = `⚠️ إنذار ترشيد استهلاك الماء\nمرحباً السيد(ة) ${subNameStr}،\nتلاحظ لجمعية تامدة للتنمية أن استهلاككم لشهر ${currentMonth} قد بلغ ${currentConsumptionData} طن (m³)، وهو ما يتجاوز الحد الطبيعي (20 طن).\nالمرجو ترشيد الاستهلاك وشكراً.`;
-                        window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(alertMsg)}`, '_blank');
-                    }
-                }, 500);
+            saveLocalData();
+
+            if (navigator.onLine) {
+                await addDoc(collection(db, "archive_bills"), billArchiveObj);
+            } else {
+                queueOfflineAction('add_bill', billArchiveObj);
             }
 
             showToast('تم حفظ الفاتورة بنجاح');
@@ -640,8 +782,6 @@ window.saveBill = async function(isPaid) {
             let nextCounter = parseInt(counterInput);
             if (!isNaN(nextCounter)) { document.getElementById('counterNum').value = nextCounter + 1; }
             autoFillSubscriber();
-            await loadDataFromCloud();
-
         } catch (e) { showToast('فشل حفظ الفاتورة'); }
     } else { showToast('يرجى حساب الفاتورة أولاً'); }
 };
@@ -702,7 +842,7 @@ window.renderMonthlyStats = function() {
 };
 
 // ==========================================
-// 12. ملف الاستهلاك الشهري الشامل والأرشيف
+// 12. الأرشيف والتخزين (مع الحذف والتعديل)
 // ==========================================
 window.renderArchive = function() {
     const container = document.getElementById('archiveContainer');
@@ -747,9 +887,18 @@ window.renderArchive = function() {
         `;
         
         if(monthBills.length > 0) {
-            html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>اسم المشترك</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th></tr></thead><tbody>`;
+            html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>اسم المشترك</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`;
             monthBills.forEach(b => { 
-                html += `<tr><td>${b.counter}</td><td>${b.name}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td></tr>`; 
+                html += `<tr>
+                    <td>${b.counter}</td>
+                    <td>${b.name}</td>
+                    <td>${b.consumption}</td>
+                    <td>${b.total}</td>
+                    <td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td>
+                    <td class="no-print">
+                        <button class="action-btn" style="background:var(--danger-red); padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button>
+                    </td>
+                </tr>`; 
             });
             html += `</tbody></table>`;
         } else {
@@ -758,11 +907,19 @@ window.renderArchive = function() {
         
         html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية (مداخيل ومصاريف):</h5>`;
         if(monthFinance.length > 0) {
-            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th>المستند</th></tr></thead><tbody>`;
+            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th>المستند</th><th class="no-print">إجراءات</th></tr></thead><tbody>`;
             monthFinance.forEach(f => {
                 let typeText = f.type === 'income' ? 'مدخول (+)' : 'مصروف (-)';
                 let colorClass = f.type === 'income' ? 'text-success' : 'text-danger';
-                html += `<tr><td class="${colorClass}">${typeText}</td><td>${f.amount}</td><td>${f.desc}</td><td>${f.fileName}</td></tr>`;
+                html += `<tr>
+                    <td class="${colorClass}">${typeText}</td>
+                    <td>${f.amount}</td>
+                    <td>${f.desc}</td>
+                    <td>${f.fileName}</td>
+                    <td class="no-print">
+                        <button class="action-btn" style="background:var(--danger-red); padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button>
+                    </td>
+                </tr>`;
             });
             html += `</tbody></table>`;
         } else {
@@ -773,4 +930,32 @@ window.renderArchive = function() {
         box.innerHTML = html;
         container.appendChild(box);
     });
+};
+
+window.deleteArchiveBill = async function(firestoreId) {
+    if(confirm('هل أنت متأكد من حذف هذه الفاتورة من الأرشيف؟')) {
+        try {
+            archiveBills = archiveBills.filter(b => b.firestoreId !== firestoreId);
+            saveLocalData();
+            if(navigator.onLine && !firestoreId.startsWith('local_')) {
+                await deleteDoc(doc(db, "archive_bills", firestoreId));
+            }
+            showToast('تم حذف الفاتورة بنجاح');
+            renderArchive();
+        } catch (e) { showToast('فشل حذف الفاتورة'); }
+    }
+};
+
+window.deleteArchiveFinance = async function(firestoreId) {
+    if(confirm('هل أنت متأكد من حذف هذه العملية المالية من الأرشيف؟')) {
+        try {
+            archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId);
+            saveLocalData();
+            if(navigator.onLine && !firestoreId.startsWith('local_')) {
+                await deleteDoc(doc(db, "archive_finance", firestoreId));
+            }
+            showToast('تم حذف العمليات بنجاح');
+            renderArchive();
+        } catch (e) { showToast('فشل حذف العملية'); }
+    }
 };
