@@ -58,6 +58,7 @@
             <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
             <a onclick="navigateTo('📜 القانون والتقارير')">📜 القانون الأساسي والتقارير</a>
             <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
+            <a onclick="navigateTo('👥 نشاط الأعضاء')">👥 نشاط الأعضاء وساعات العمل</a>
             <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
             
             <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج والقفل</a>
@@ -139,7 +140,6 @@
                     </label>
                 </div>
 
-                <!-- صندوق التنبيهات الفورية -->
                 <div id="smartAlertBox" style="display:none; background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold;"></div>
 
                 <button class="btn btn-blue" onclick="calculateBill()">إعادة حساب الفاتورة</button>
@@ -249,7 +249,7 @@
             </div>
         </div>
 
-        <!-- 8. القانون الأساسي والتقارير المالية PDF (مع أزرار الرفع واضحة تماماً) -->
+        <!-- 8. القانون الأساسي والتقارير المالية PDF -->
         <div id="view-bylaws" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>📜 تعديل القانون الأساسي</h3>
@@ -283,7 +283,16 @@
             </div>
         </div>
 
-        <!-- 10. الإعدادات وسجل نشاط الأعضاء -->
+        <!-- 10. نشاط الأعضاء (قسم مستقل رئيسي) -->
+        <div id="view-member-activity" class="view-section" style="display: none;">
+            <div class="card">
+                <h3>👥 سجل نشاط الأعضاء (تسجيلات الدخول وساعات العمل)</h3>
+                <p style="color:#666; font-size:0.9rem;">متابعة عدد مرات الدخول ومجموع ساعات العمل الفعلية لكل عضو داخل النظام شهرياً.</p>
+                <div id="dedicatedMemberActivityContainer" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <!-- 11. الإعدادات -->
         <div id="view-settings" class="view-section" style="display: none;">
             <div class="card no-print">
                 <h3>⚙️ إعدادات وأثمنة النظام</h3>
@@ -293,11 +302,6 @@
                 <div class="form-group"><label>واجب الصيانة الثابت (درهم)</label><input type="number" id="setMaintenance"></div>
                 <div class="form-group"><label>غرامة التأخير (درهم)</label><input type="number" id="setPenalty"></div>
                 <button class="btn btn-blue" onclick="saveSettings()">💾 حفظ الإعدادات</button>
-            </div>
-
-            <div class="card no-print" style="border-top-color: var(--secondary-cyan);">
-                <h3>📊 سجل نشاط الأعضاء (تسجيلات الدخول وساعات العمل شهرياً)</h3>
-                <div id="memberActivityStats" style="margin-top: 10px; font-size: 0.95rem;"></div>
             </div>
 
             <div class="card no-print" style="border-top-color: var(--danger-red);">
