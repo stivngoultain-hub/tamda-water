@@ -24,16 +24,16 @@ body {
 header { 
     background-color: var(--primary-blue); color: white; padding: 15px 20px; 
     display: flex; align-items: center; justify-content: space-between; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 500; 
 }
 header h2 { margin: 0; font-size: 1.3rem; }
 .menu-btn { font-size: 26px; cursor: pointer; background: none; border: none; color: white; padding: 5px; line-height: 1; }
 
-/* إصلاح نهائي وقاطع للسيد بار ليكون مخفياً تماماً بالخارج ولا يظهر إلا عند النقر */
+/* إصلاح قاطع للسيد بار لتجنب أي تداخل مع الأرشيف أو الجداول */
 .sidebar { 
-    height: 100%; width: 280px; position: fixed; top: 0; right: -320px !important; 
-    background-color: white; box-shadow: -5px 0 20px rgba(0,0,0,0.25); 
-    transition: right 0.3s ease-in-out; z-index: 999999 !important; padding-top: 50px; 
+    height: 100%; width: 280px; position: fixed; top: 0; right: -350px; 
+    background-color: white; box-shadow: -5px 0 25px rgba(0,0,0,0.3); 
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 9999999 !important; padding-top: 50px; 
     display: flex; flex-direction: column; overflow-y: auto; 
 }
 .sidebar.active { right: 0 !important; }
@@ -46,14 +46,14 @@ header h2 { margin: 0; font-size: 1.3rem; }
 
 .close-btn { 
     position: absolute; top: 10px; left: 10px; font-size: 28px; cursor: pointer; 
-    color: var(--danger-red); line-height: 1; z-index: 1000005; background: #fff;
+    color: var(--danger-red); line-height: 1; z-index: 10000000 !important; background: #fff;
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; 
     border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
 }
 
 .overlay { 
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(0,0,0,0.5); z-index: 999990; backdrop-filter: blur(2px); 
+    background: rgba(0,0,0,0.6); z-index: 9999990 !important; backdrop-filter: blur(2px); 
 }
 .overlay.active { display: block; }
 
@@ -102,7 +102,7 @@ header h2 { margin: 0; font-size: 1.3rem; }
 .archive-table th, .archive-table td { border: 1px solid #ddd; padding: 8px 12px; text-align: right; }
 .archive-table th { background-color: var(--bg-light); color: var(--primary-blue); }
 
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--primary-blue); color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: none; z-index: 300000; font-size: 0.95rem; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--primary-blue); color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: none; z-index: 30000000; font-size: 0.95rem; }
 .toast.show { display: block; animation: fadeInOut 2.5s ease; }
 @keyframes fadeInOut { 0% { opacity: 0; transform: translate(-50%, 20px); } 15% { opacity: 1; transform: translate(-50%, 0); } 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -20px); } }
 
