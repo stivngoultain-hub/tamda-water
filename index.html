@@ -55,7 +55,6 @@
             
             <h3>القائمة الرئيسية</h3>
             
-            <!-- روابط الإدارة -->
             <div id="adminLinks">
                 <a onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
                 <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
@@ -65,14 +64,13 @@
                 <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
                 <a onclick="navigateTo('💖 سجل التبرعات')">💖 سجل التبرعات</a>
                 <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
-                <a onclick="navigateTo('📥 الشكايات والطلبات')">📥 الشكايات والطلبات (جديد)</a>
+                <a onclick="navigateTo('📥 الشكايات والطلبات')">📥 الشكايات والطلبات</a>
                 <a onclick="navigateTo('📜 القانون والتقارير')">📜 القانون الأساسي والتقارير</a>
                 <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
                 <a onclick="navigateTo('👥 نشاط الأعضاء')">👥 سجل نشاط الأعضاء</a>
                 <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
             </div>
 
-            <!-- روابط المنخرط (المشترك) -->
             <div id="subscriberLinks" style="display: none;">
                 <a onclick="navigateTo('👤 فواتيري وطلباتي')">👤 فواتيري الخاصة وطلباتي</a>
             </div>
@@ -82,7 +80,7 @@
     </div>
 
     <div class="container">
-        <!-- 1. لوحة القيادة (للإدارة) -->
+        <!-- لوحة القيادة -->
         <div id="view-dashboard" class="view-section admin-only-view">
             <div class="card no-print">
                 <h3>مرحباً بك في نظام التسيير</h3>
@@ -97,7 +95,7 @@
             </div>
         </div>
 
-        <!-- 2. إدارة المنخرطين (للإدارة) -->
+        <!-- إدارة المنخرطين -->
         <div id="view-subscribers" class="view-section admin-only-view" style="display: none;">
             <div class="card no-print">
                 <h3 id="subFormTitle">➕ إضافة مشترك جديد</h3>
@@ -116,9 +114,8 @@
             </div>
         </div>
 
-        <!-- 3. إدارة ماء الشرب والتنبيهات (للإدارة) -->
+        <!-- إدارة ماء الشرب -->
         <div id="view-water" class="view-section admin-only-view" style="display: none;">
-            <!-- الكود السابق للفوترة يبقى كما هو -->
             <div class="card no-print">
                 <h3>💧 إدخال قراءة العدادات والفوترة</h3>
                 <div class="form-group">
@@ -193,7 +190,7 @@
             </div>
         </div>
 
-        <!-- 4. الإحصائيات (إدارة) -->
+        <!-- الإحصائيات -->
         <div id="view-stats" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <h3>📊 الإحصائيات والرسوم البيانية للاستهلاك</h3>
@@ -220,7 +217,7 @@
             </div>
         </div>
 
-        <!-- 5. التقارير المالية (إدارة) -->
+        <!-- التقارير المالية -->
         <div id="view-reports" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <div class="print-header" style="display:none; text-align:center; margin-bottom:20px;"><h2>جمعية تامدة للتنمية</h2><p>التقرير المالي العام</p><hr></div>
@@ -236,7 +233,7 @@
             </div>
         </div>
 
-        <!-- 6. المداخيل والمصاريف العادية (إدارة) -->
+        <!-- المداخيل والمصاريف -->
         <div id="view-finance" class="view-section admin-only-view" style="display: none;">
             <div class="card no-print">
                 <h3>💰 تسجيل المداخيل والمصاريف</h3>
@@ -252,7 +249,7 @@
             </div>
         </div>
 
-        <!-- 7. سجل التبرعات -->
+        <!-- التبرعات -->
         <div id="view-donations" class="view-section admin-only-view" style="display: none;">
             <div class="card no-print">
                 <h3 style="color:#d81b60;">💖 تسجيل تبرع جديد</h3>
@@ -271,7 +268,7 @@
             </div>
         </div>
 
-        <!-- 8. الديون والأرصدة (إدارة) -->
+        <!-- الديون والأرصدة -->
         <div id="view-debts" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <h3>📒 لائحة الديون والأرصدة غير المستخلصة</h3>
@@ -279,7 +276,7 @@
             </div>
         </div>
 
-        <!-- 9. الشكايات الواردة (إدارة) -->
+        <!-- الشكايات (للإدارة) -->
         <div id="view-complaints" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <h3>📥 الشكايات والطلبات الواردة من المنخرطين</h3>
@@ -287,7 +284,7 @@
             </div>
         </div>
 
-        <!-- 10. القانون الأساسي (إدارة) -->
+        <!-- القانون والتقارير PDF -->
         <div id="view-bylaws" class="view-section admin-only-view" style="display: none;">
             <div class="card no-print">
                 <h3>📜 تعديل القانون الأساسي (نصي)</h3>
@@ -307,7 +304,7 @@
             </div>
         </div>
 
-        <!-- 11. الأرشيف (إدارة) -->
+        <!-- الأرشيف -->
         <div id="view-archive" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
@@ -318,7 +315,7 @@
             </div>
         </div>
 
-        <!-- 12. الإعدادات (إدارة) -->
+        <!-- الإعدادات -->
         <div id="view-settings" class="view-section admin-only-view" style="display: none;">
             <div class="card no-print">
                 <h3>⚙️ إعدادات وأثمنة النظام</h3>
@@ -331,7 +328,7 @@
             </div>
         </div>
         
-        <!-- 13. نشاط الاعضاء (إدارة) -->
+        <!-- سجل نشاط الأعضاء -->
         <div id="view-member-activity" class="view-section admin-only-view" style="display: none;">
             <div class="card">
                 <h3>👥 سجل نشاط الأعضاء</h3>
@@ -366,7 +363,6 @@
     </div>
 </div>
 
-<!-- عارض PDF الداخلي (Modal) -->
 <div id="pdfModal" class="pdf-modal no-print">
     <div class="pdf-modal-content">
         <div class="pdf-modal-header">
