@@ -28,10 +28,12 @@ const toast = document.getElementById('toast');
 
 let totalIncome = 0; 
 let totalExpense = 0; 
+let totalDonationsIncome = 0; // تخزين مجموع التبرعات
 let currentBillTotal = 0; 
 let subscribers = []; 
 let appSettings = { tier1: 4, tier2: 8, tier3: 15, maintenance: 15, penalty: 50 }; 
 let transactionsList = []; 
+let donationsList = []; // مصفوفة التبرعات الجديدة
 let archiveBills = []; 
 let archiveFinance = [];
 let sessionStartTime = Date.now();
@@ -43,6 +45,7 @@ const views = {
     '📊 الإحصائيات الشهرية': 'view-stats',
     '📊 التقارير المالية': 'view-reports',
     '💰 المداخيل والمصاريف': 'view-finance',
+    '💖 سجل التبرعات': 'view-donations',
     '📒 الديون والأرصدة': 'view-debts', 
     '📜 القانون والتقارير': 'view-bylaws', 
     '🗄️ الأرشيف والتخزين': 'view-archive',
@@ -85,6 +88,7 @@ function updateOnlineStatus(isOnline) {
 function loadLocalData() {
     subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
     transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
+    donationsList = JSON.parse(localStorage.getItem('local_donations')) || []; // تحميل التبرعات
     archiveBills = JSON.parse(localStorage.getItem('local_bills')) || [];
     archiveFinance = JSON.parse(localStorage.getItem('local_fin')) || [];
     
@@ -92,23 +96,33 @@ function loadLocalData() {
     renderSubscribers();
     updateFinancialDashboard();
     renderTransactions();
+    renderDonations(); // عرض التبرعات
     renderDebts();
 }
 
 function saveLocalData() {
     localStorage.setItem('local_subs', JSON.stringify(subscribers));
     localStorage.setItem('local_trans', JSON.stringify(transactionsList));
+    localStorage.setItem('local_donations', JSON.stringify(donationsList)); // حفظ التبرعات
     localStorage.setItem('local_bills', JSON.stringify(archiveBills));
     localStorage.setItem('local_fin', JSON.stringify(archiveFinance));
 }
 
 function recalculateFinancials() {
-    totalIncome = 0;
+    let transIncome = 0;
     totalExpense = 0;
     transactionsList.forEach(t => {
-        if(t.type === 'income') totalIncome += Number(t.amount || 0);
+        if(t.type === 'income') transIncome += Number(t.amount || 0);
         else totalExpense += Number(t.amount || 0);
     });
+
+    totalDonationsIncome = 0;
+    donationsList.forEach(d => {
+        totalDonationsIncome += Number(d.amount || 0);
+    });
+
+    // إجمالي المداخيل = المداخيل العادية + التبرعات
+    totalIncome = transIncome + totalDonationsIncome;
 }
 
 async function loadDataFromCloud() {
@@ -121,6 +135,10 @@ async function loadDataFromCloud() {
         const transSnapshot = await getDocs(collection(db, "transactions"));
         transactionsList = [];
         transSnapshot.forEach((docSnap) => { transactionsList.push({ firestoreId: docSnap.id, ...docSnap.data() }); });
+
+        const donSnapshot = await getDocs(collection(db, "donations"));
+        donationsList = [];
+        donSnapshot.forEach((docSnap) => { donationsList.push({ firestoreId: docSnap.id, ...docSnap.data() }); });
 
         const billsSnap = await getDocs(collection(db, "archive_bills"));
         archiveBills = [];
@@ -135,6 +153,7 @@ async function loadDataFromCloud() {
         renderSubscribers();
         updateFinancialDashboard();
         renderTransactions();
+        renderDonations();
         renderDebts();
     } catch (e) { console.log("وضع أوفلاين نشط."); }
 }
@@ -152,6 +171,7 @@ async function syncOfflineQueue() {
         for (let item of queue) {
             if (item.actionType === 'add_subscriber') await addDoc(collection(db, "subscribers"), item.data);
             else if (item.actionType === 'add_transaction') await addDoc(collection(db, "transactions"), item.data);
+            else if (item.actionType === 'add_donation') await addDoc(collection(db, "donations"), item.data);
             else if (item.actionType === 'add_bill') await addDoc(collection(db, "archive_bills"), item.data);
         }
         localStorage.removeItem('offline_queue');
@@ -261,25 +281,30 @@ window.updatePassword = function() {
     showToast(`تم تحديث الرمز السري لـ (${roleNames[role]}) بنجاح!`);
 };
 
-function renderMemberActivityStats() {
-    const container = document.getElementById('dedicatedMemberActivityContainer');
+window.renderMemberActivityStats = function() {
+    const container = document.getElementById('standaloneMemberActivity');
     if(!container) return;
     let currentMonth = new Date().toISOString().slice(0, 7);
     let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
     let monthData = allActivity[currentMonth] || {};
 
-    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><ul style="padding-right:20px; margin:5px 0; line-height:1.8;">`;
+    let html = `<p>إحصائيات شهر: <strong>${currentMonth}</strong></p><div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">`;
     for(let r in roleNames) {
         let stats = monthData[r] || { logins: 0, minutes: 0 };
         let hours = (stats.minutes / 60).toFixed(1);
-        html += `<li><strong>${roleNames[r]}:</strong> ${stats.logins} تسجيل دخول | ${hours} ساعات عمل</li>`;
+        html += `<div class="list-item">
+            <div class="list-info">
+                <strong>${roleNames[r]}</strong>
+                <span>عدد تسجيلات الدخول: <strong>${stats.logins}</strong> مرة | مجموع ساعات العمل: <strong class="text-success">${hours} ساعة</strong></span>
+            </div>
+        </div>`;
     }
-    html += `</ul>`;
+    html += `</div>`;
     container.innerHTML = html;
-}
+};
 
 // ==========================================
-// 5. التحكم بالسيد بار (إخفاء تماماً وعدم ظهوره إلا بالنقر)
+// 5. التحكم بالسيد بار
 // ==========================================
 window.toggleSidebar = function() { 
     if (sidebar) sidebar.classList.toggle('active'); 
@@ -306,6 +331,7 @@ window.navigateTo = function(pageName) {
         if(pageName === '👥 نشاط الأعضاء') renderMemberActivityStats();
         if(pageName === '📒 الديون والأرصدة') renderDebts();
         if(pageName === '💰 المداخيل والمصاريف') renderTransactions();
+        if(pageName === '💖 سجل التبرعات') renderDonations();
         if(pageName === '🗄️ الأرشيف والتخزين') renderArchive();
         if(pageName === '📊 الإحصائيات الشهرية') renderAdvancedStats();
         if(pageName === '📊 التقارير المالية') updateFinancialDashboard();
@@ -315,7 +341,7 @@ window.navigateTo = function(pageName) {
 }
 
 // ==========================================
-// 6. الإعدادات والقانون الأساسي ورفع PDF
+// 6. الإعدادات، التبرعات، وقانون/PDF (مدمج العارض)
 // ==========================================
 function loadSettings() { 
     let savedSettings = localStorage.getItem('tamda_settings');
@@ -366,7 +392,7 @@ window.uploadFinancialPDF = function() {
         
         fileInput.value = '';
         titleInput.value = '';
-        showToast('تم رفع وحفظ التقرير المالي بنجاح!');
+        showToast('تم رفع وحفظ الوثيقة بنجاح!');
         renderPDFReportsList();
     };
     reader.readAsDataURL(file);
@@ -376,14 +402,14 @@ window.renderPDFReportsList = function() {
     const container = document.getElementById('pdfReportsContainer');
     if(!container) return;
     let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-    if(reports.length === 0) { container.innerHTML = '<p style="color:#666; font-size:0.9rem;">لا توجد تقارير مالية مرفوعة حالياً.</p>'; return; }
+    if(reports.length === 0) { container.innerHTML = '<p style="color:#666; font-size:0.9rem;">لا توجد وثائق مرفوعة حالياً.</p>'; return; }
 
-    let html = `<h4 style="color:var(--primary-blue); margin-top:15px;">📁 التقارير المالية المرفوعة (PDF):</h4><div style="display:flex; flex-direction:column; gap:8px;">`;
+    let html = `<h4 style="color:var(--primary-blue); margin-top:15px;">📁 الوثائق وملفات PDF المرفوعة:</h4><div style="display:flex; flex-direction:column; gap:8px;">`;
     reports.forEach((rep, idx) => {
         html += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
             <div><strong>${rep.title}</strong><span style="font-size:0.8rem; color:#666;">تاريخ الرفع: ${rep.date}</span></div>
-            <div style="display:flex; gap:5px;">
-                <a href="${rep.data}" download="${rep.title}.pdf" class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem; text-decoration:none;">📥 تحميل PDF</a>
+            <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <button class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem;" onclick="viewPDF(${idx})">👁️ عرض وقراءة</button>
                 <button class="action-btn" onclick="deletePDFReport(${idx})">حذف</button>
             </div>
         </div>`;
@@ -392,13 +418,90 @@ window.renderPDFReportsList = function() {
     container.innerHTML = html;
 };
 
+window.viewPDF = function(index) {
+    let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
+    if (reports[index]) {
+        const base64 = reports[index].data;
+        document.getElementById('pdfModalTitle').textContent = reports[index].title;
+        document.getElementById('pdfViewerFrame').src = base64;
+        document.getElementById('pdfModal').style.display = 'flex';
+    }
+};
+
+window.closePDFModal = function() {
+    document.getElementById('pdfModal').style.display = 'none';
+    document.getElementById('pdfViewerFrame').src = '';
+};
+
 window.deletePDFReport = function(index) {
-    if(confirm('حذف هذا التقرير المالي؟')) {
+    if(confirm('حذف هذه الوثيقة؟')) {
         let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
         reports.splice(index, 1);
         localStorage.setItem('tamda_pdf_reports', JSON.stringify(reports));
         renderPDFReportsList();
         showToast('تم الحذف بنجاح');
+    }
+};
+
+// === منطق التبرعات ===
+window.saveDonation = async function() {
+    const month = document.getElementById('donationMonth').value;
+    const name = document.getElementById('donationName').value.trim();
+    const amount = parseFloat(document.getElementById('donationAmount').value) || 0;
+    
+    if (amount <= 0 || !month || !name) { showToast('المرجو إدخال شهر التبرع، اسم المتبرع والمبلغ'); return; }
+
+    let donObj = {
+        firestoreId: 'local_' + Date.now(),
+        month, name, amount, timestamp: new Date().toISOString()
+    };
+    
+    donationsList.push(donObj);
+    recalculateFinancials();
+    saveLocalData();
+
+    if (navigator.onLine) { await addDoc(collection(db, "donations"), donObj); } 
+    else { queueOfflineAction('add_donation', donObj); }
+
+    document.getElementById('donationName').value = '';
+    document.getElementById('donationAmount').value = ''; 
+    showToast('تم تسجيل التبرع وإضافته للمداخيل بنجاح');
+    renderDonations();
+    updateFinancialDashboard();
+};
+
+window.renderDonations = function() {
+    const container = document.getElementById('donationsListContainer');
+    if(!container) return;
+    container.innerHTML = '';
+    if(donationsList.length === 0) { container.innerHTML = '<p>لا توجد تبرعات مسجلة بعد.</p>'; return; }
+    
+    donationsList.slice().reverse().forEach((d) => {
+        const div = document.createElement('div'); 
+        div.className = 'list-item';
+        div.style.borderRightColor = '#d81b60';
+        div.innerHTML = `
+            <div class="list-info">
+                <strong style="color:#d81b60">تبرع بمبلغ: ${d.amount} درهم</strong>
+                <span>المتبرع: السيد(ة) ${d.name} | شهر التبرع: ${d.month}</span>
+            </div>
+            <button class="action-btn" onclick="deleteDonation('${d.firestoreId}')">حذف</button>
+        `;
+        container.appendChild(div);
+    });
+};
+
+window.deleteDonation = async function(firestoreId) {
+    if(confirm('متأكد من حذف هذا التبرع؟ سيتم خصمه من الصندوق.')) {
+        try {
+            donationsList = donationsList.filter(d => d.firestoreId !== firestoreId);
+            recalculateFinancials();
+            saveLocalData();
+            if(navigator.onLine && !firestoreId.startsWith('local_')) { await deleteDoc(doc(db, "donations", firestoreId)); }
+            showToast('تم حذف التبرع بنجاح');
+            renderDonations();
+            updateFinancialDashboard();
+        } catch (e) { showToast('فشل الحذف'); }
     }
 };
 
@@ -620,11 +723,17 @@ window.enableEdit = function(elementId) {
 // ==========================================
 window.updateFinancialDashboard = function() {
     const netBalance = totalIncome - totalExpense;
+    const normalIncome = totalIncome - totalDonationsIncome;
+    
+    const normalIncReport = document.getElementById('normalIncomeReport');
+    const donIncReport = document.getElementById('donationsIncomeReport');
     const incReport = document.getElementById('totalIncomeReport');
     const expReport = document.getElementById('totalExpenseReport');
     const netReport = document.getElementById('netBalanceReport');
     const dashBal = document.getElementById('dashBalance');
     
+    if(normalIncReport) normalIncReport.textContent = normalIncome + ' درهم';
+    if(donIncReport) donIncReport.textContent = totalDonationsIncome + ' درهم';
     if(incReport) incReport.textContent = totalIncome + ' درهم';
     if(expReport) expReport.textContent = totalExpense + ' درهم';
     if(netReport) netReport.textContent = netBalance + ' درهم';
