@@ -72,7 +72,7 @@ async function loadDataFromCloud() {
             subscribers.push({ firestoreId: docSnap.id, ...docSnap.data() });
         });
         
-        // ترتيب المنخرطين حسب رقم العداد تصاعدياً
+        // ترتيب المنخرطين حسب رقم العداد تصاعدياً من 1 إلى الأخير
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
 
         const transSnapshot = await getDocs(collection(db, "transactions"));
@@ -142,7 +142,7 @@ window.logout = function() {
 }
 
 // ==========================================
-// 5. التنقل وإغلاق القائمة الجانبية تماماً
+// 5. التنقل وإغلاق القائمة الجانبية فوراً
 // ==========================================
 window.toggleSidebar = function() { 
     if(sidebar) sidebar.classList.toggle('active'); 
@@ -157,7 +157,7 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق القائمة والخلفية المعتمة فوراً ودون تأخير
+    // إغلاق القائمة والخلفية المعتمة تماماً عند النقر على أي صفحة
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
 
@@ -397,29 +397,24 @@ window.autoFillSubscriber = function() {
         if(sub.lastBilledMonth) document.getElementById('billingMonth').value = getNextMonth(sub.lastBilledMonth);
         if (sub.lastReading !== null) { 
             document.getElementById('prevReading').value = sub.lastReading; 
-            document.getElementById('prevReading').readOnly = true; 
-            document.getElementById('prevReadingHint').style.display = 'block'; 
         } else { 
             document.getElementById('prevReading').value = ''; 
-            document.getElementById('prevReading').readOnly = false; 
-            document.getElementById('prevReadingHint').style.display = 'none'; 
         }
+        document.getElementById('currReading').value = '';
         document.getElementById('delayMonths').value = sub.delayMonths || 0;
     } else {
         document.getElementById('subscriberName').value = ''; 
         document.getElementById('prevReading').value = ''; 
-        document.getElementById('prevReading').readOnly = false; 
-        document.getElementById('prevReadingHint').style.display = 'none'; 
+        document.getElementById('currReading').value = '';
         document.getElementById('delayMonths').value = 0;
     }
     calculateBill();
 };
 
-window.enablePrevEdit = function() {
-    const prevInput = document.getElementById('prevReading');
-    prevInput.readOnly = false;
-    prevInput.focus();
-    showToast('تم فتح القراءة السابقة للتعديل');
+window.enableEdit = function(elementId) {
+    const input = document.getElementById(elementId);
+    input.focus();
+    showToast('تم فتح الحقل للتعديل اليدوي في حال الخطأ');
 };
 
 // ==========================================
@@ -731,10 +726,9 @@ window.renderArchive = function() {
         box.className = 'archive-month-box';
         
         let html = `
-            <div id="print-month-${month}" class="printable-archive">
-                <h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <div class="printable-archive">
+                <h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px;">
                     <span>📅 ملف الاستهلاك الشامل - شهر: ${month}</span>
-                    <button class="btn btn-blue no-print" style="margin:0; width:auto; padding:6px 12px; font-size:0.85rem;" onclick="printMonthArchive('${month}')">🖨️ طباعة الملف الشامل</button>
                 </h4>
                 <div style="display:flex; gap:20px; margin-bottom:10px; font-size:0.95rem; background:var(--bg-light); padding:8px; border-radius:6px;">
                     <span>إجمالي الاستهلاك الشهري: <strong>${monthTotalWater} m³</strong></span>
@@ -770,13 +764,4 @@ window.renderArchive = function() {
         box.innerHTML = html;
         container.appendChild(box);
     });
-};
-
-window.printMonthArchive = function(month) {
-    let printContent = document.getElementById(`print-month-${month}`).innerHTML;
-    let originalBody = document.body.innerHTML;
-    document.body.innerHTML = `<div style="padding:20px; direction:rtl; font-family:'Segoe UI', Tahoma, sans-serif;"><h2>جمعية تامدة للتنمية</h2><h3>ملف الاستهلاك الشهري الشامل - ${month}</h3><hr>${printContent}</div>`;
-    window.print();
-    document.body.innerHTML = originalBody;
-    location.reload(); 
 };
