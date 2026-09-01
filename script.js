@@ -279,28 +279,11 @@ function renderMemberActivityStats() {
 }
 
 // ==========================================
-// 5. التحكم بالسيد بار (فتح/إغلاق موثوق بدون بقايا بصرية)
+// 5. التحكم بالسيد بار (إخفاء تماماً وعدم ظهوره إلا بالنقر)
 // ==========================================
-
-// فونكسيون موحدة للإغلاق، تُستعمل من زر الإغلاق، من الأوفرلاي،
-// ومن navigateTo. تضمن إزالة الكلاس 'active' من الجهتين دائماً
-// حتى لو تكرر النقر أو تداخلت الأحداث.
-window.closeSidebar = function() {
-    if (sidebar) sidebar.classList.remove('active');
-    if (overlay) overlay.classList.remove('active');
-}
-
-window.openSidebar = function() {
-    if (sidebar) sidebar.classList.add('active');
-    if (overlay) overlay.classList.add('active');
-}
-
 window.toggleSidebar = function() { 
-    if (sidebar && sidebar.classList.contains('active')) {
-        closeSidebar();
-    } else {
-        openSidebar();
-    }
+    if (sidebar) sidebar.classList.toggle('active'); 
+    if (overlay) overlay.classList.toggle('active'); 
 }
 
 window.showToast = function(message) {
@@ -311,8 +294,8 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إغلاق مضمون للسيد بار قبل أي تنقل بين الصفحات
-    closeSidebar();
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
 
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     
