@@ -60,7 +60,7 @@
                 <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
                 <a onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
                 <a onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشهرية</a>
-                <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
+                <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية (الصندوق)</a>
                 <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
                 <a onclick="navigateTo('💖 سجل التبرعات')">💖 سجل التبرعات</a>
                 <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
@@ -75,7 +75,7 @@
                 <a onclick="navigateTo('👤 فواتيري وطلباتي')">👤 فواتيري الخاصة وطلباتي</a>
             </div>
             
-            <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج</a>
+            <a onclick="logout(false)" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج</a>
         </div>
     </div>
 
@@ -90,7 +90,6 @@
                 <h3>إحصائيات سريعة</h3>
                 <div class="stat-row"><span>إجمالي المنخرطين:</span><strong id="dashSubCount">0</strong></div>
                 <div class="stat-row"><span>الديون المتأخرة:</span><span class="text-danger" id="dashDebts">0 درهم</span></div>
-                <div class="stat-row"><span>الرصيد الصافي:</span><strong class="text-success" id="dashBalance">0 درهم</strong></div>
                 <button class="btn btn-blue" onclick="navigateTo('💧 إدارة ماء الشرب')">📝 إدخال قراءة العدادات</button>
             </div>
         </div>
@@ -217,18 +216,32 @@
             </div>
         </div>
 
-        <!-- التقارير المالية -->
+        <!-- التقارير المالية والصندوق المالي -->
         <div id="view-reports" class="view-section admin-only-view" style="display: none;">
+            <div class="card no-print">
+                <h3>💰 الرصيد الإجمالي للجمعية (الصندوق)</h3>
+                <p style="font-size:0.9rem; color:#666;">يتم تجميع كافة الإضافات اليدوية، بالإضافة إلى الرصيد الصافي الأوتوماتيكي عند إغلاق كل شهر.</p>
+                <div class="stat-row">
+                    <span>الرصيد الحالي المتوفر:</span>
+                    <strong id="mainCapitalAmount" style="font-size: 1.5rem; color: var(--primary-blue);">0 درهم</strong>
+                </div>
+                <button class="btn btn-blue" onclick="addManualCapital()">➕ إضافة مبلغ يدوي للصندوق</button>
+            </div>
+
+            <div class="card no-print">
+                <h3>📜 سجل الإضافات للصندوق</h3>
+                <div id="capitalLedgerContainer" style="margin-top: 15px;"></div>
+            </div>
+
             <div class="card">
                 <div class="print-header" style="display:none; text-align:center; margin-bottom:20px;"><h2>جمعية تامدة للتنمية</h2><p>التقرير المالي العام</p><hr></div>
-                <h3>📊 التقارير المالية العامة</h3>
+                <h3>📊 التقارير المالية العامة (العمليات والمداخيل)</h3>
                 <div class="stat-row"><span>مداخيل الاستهلاك العادية:</span><strong class="text-success" id="normalIncomeReport">0 درهم</strong></div>
                 <div class="stat-row"><span>مداخيل التبرعات:</span><strong style="color:var(--primary-blue);" id="donationsIncomeReport">0 درهم</strong></div>
                 <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
-                <div class="stat-row"><span>مجموع المداخيل (العامة + التبرعات):</span><strong class="text-success" id="totalIncomeReport">0 درهم</strong></div>
+                <div class="stat-row"><span>مجموع المداخيل:</span><strong class="text-success" id="totalIncomeReport">0 درهم</strong></div>
                 <div class="stat-row"><span>مجموع المصاريف:</span><strong class="text-danger" id="totalExpenseReport">0 درهم</strong></div>
                 <hr style="border:0; border-top:2px solid #eee; margin:15px 0;">
-                <div class="stat-row"><span>الرصيد الصافي (في الصندوق):</span><strong id="netBalanceReport" style="font-size: 1.3rem; color: var(--primary-blue);">0 درهم</strong></div>
                 <div class="no-print"><button class="btn btn-outline" style="margin-top:20px;" onclick="window.print()">🖨️ طبع التقرير المالي</button></div>
             </div>
         </div>
@@ -360,18 +373,6 @@
             </div>
         </div>
 
-    </div>
-</div>
-
-<div id="pdfModal" class="pdf-modal no-print">
-    <div class="pdf-modal-content">
-        <div class="pdf-modal-header">
-            <h3 id="pdfModalTitle" style="margin:0; color:white;">عارض الوثائق</h3>
-            <button class="pdf-close-btn" onclick="closePDFModal()">×</button>
-        </div>
-        <div class="pdf-modal-body">
-            <iframe id="pdfViewerFrame" style="width:100%; height:100%; border:none;"></iframe>
-        </div>
     </div>
 </div>
 
