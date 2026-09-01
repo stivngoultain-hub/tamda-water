@@ -374,7 +374,7 @@ window.renderPDFReportsList = function() {
     const container = document.getElementById('pdfReportsContainer');
     if(!container) return;
     let reports = JSON.parse(localStorage.getItem('tamda_pdf_reports')) || [];
-    if(reports.length === 0) { container.innerHTML = ''; return; }
+    if(reports.length === 0) { container.innerHTML = '<p style="color:#666; font-size:0.9rem;">لا توجد تقارير مالية مرفوعة حالياً.</p>'; return; }
 
     let html = `<h4 style="color:var(--primary-blue); margin-top:15px;">📁 التقارير المالية المرفوعة (PDF):</h4><div style="display:flex; flex-direction:column; gap:8px;">`;
     reports.forEach((rep, idx) => {
