@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateOnlineStatus(navigator.onLine);
     if(navigator.onLine) { loadDataFromCloud(); }
 
-    // تتبع وقت العمل وإرسال حالة التواجد كل بضع ثوانٍ
     setInterval(updateSessionTimeAndPresence, 10000);
 });
 
@@ -184,7 +183,6 @@ window.authenticate = function() {
         sessionStorage.setItem('tamda_role', role);
         sessionStartTime = Date.now();
         
-        // تسجيل الدخول في سجل النشاط الشهري
         recordLoginStats(role);
 
         document.getElementById('loginScreen').style.display = 'none';
@@ -213,25 +211,21 @@ function updateSessionTimeAndPresence() {
     let role = sessionStorage.getItem('tamda_role');
     let currentMonth = new Date().toISOString().slice(0, 7);
     
-    // تحديث ساعات العمل (بالدقائق)
     let elapsedMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
     if(elapsedMinutes > 0) {
         let allActivity = JSON.parse(localStorage.getItem('tamda_member_activity')) || {};
         if(allActivity[currentMonth] && allActivity[currentMonth][role]) {
-            // حفظ تراكمي بسيط للدقائق النشطة
-            sessionStartTime = Date.now(); // إعادة ضبط المرجع
+            sessionStartTime = Date.now();
             allActivity[currentMonth][role].minutes += elapsedMinutes;
             localStorage.setItem('tamda_member_activity', JSON.stringify(allActivity));
         }
     }
 
-    // محاكاة / تتبع التواجد المتزامن عبر LocalStorage heartbeat للأعضاء
     let now = Date.now();
     let presences = JSON.parse(localStorage.getItem('tamda_presences')) || {};
     presences[role] = now;
     localStorage.setItem('tamda_presences', JSON.stringify(presences));
 
-    // فحص من هو متواجد خلال آخر 15 ثانية
     let activePeers = [];
     for(let r in presences) {
         if(now - presences[r] < 15000 && r !== role) {
@@ -299,7 +293,6 @@ window.showToast = function(message) {
 }
 
 window.navigateTo = function(pageName) {
-    // إخفاء السيد بار فوراً عند الضغط على أي عنصر
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
 
@@ -728,10 +721,9 @@ window.calculateBill = function() {
     const consumption = curr - prev;
     currentConsumptionData = consumption;
 
-    // فحص التنبيهات الذكية المطلوبة
     let alertMessages = [];
 
-    // 1. تنبيه نسيان قراءة عداد سابق أو لاحق
+    // تنبيه نسيان قراءة عداد سابق أو لاحق
     let currentCounterNum = parseInt(counterNumInput);
     let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
     let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth));
@@ -739,9 +731,9 @@ window.calculateBill = function() {
         alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور (سابق أو لاحق) لم يسجل لشهر ' + billingMonth + '.');
     }
 
-    // 2. تنبيه الاستهلاك (إذا كان معدله العالي >20 وسجل له أقل من 10)
+    // تنبيه الاستهلاك (إذا كان معدله العالي >20 وسجل له أقل من 10)
     let sub = subscribers.find(s => s.counter == counterNumInput);
-    let historicAvg = sub ? (sub.avgConsumption || 25) : 25; // افتراض المعيار النموذجي 25 طن للمقارنة
+    let historicAvg = sub ? (sub.avgConsumption || 25) : 25;
     if (historicAvg > 20 && consumption < 10) {
         alertMessages.push(`⚠️ تنبيه دقة المعلومات: هذا المنخرط يستهلك عادة أكثر من 20 طن، ولكن قمت بتسجيل ${consumption} طن فقط! المرجو إعادة التأكد من صحة القراءة.`);
     }
