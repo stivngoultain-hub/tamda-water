@@ -31,31 +31,32 @@
 </div>
 
 <div id="appContent" style="display: none;">
-    <div class="no-print">
+    <div class="no-print" id="mainHeaderContainer">
         <header>
             <h2>💧 تامدة للتنمية</h2>
             <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()">☰</button>
         </header>
+    </div>
 
-        <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
-        <div class="sidebar" id="sidebar">
-            <span class="close-btn" id="closeBtn" onclick="toggleSidebar()">×</span>
-            <div style="text-align:center; margin:10px 0; color:var(--accent-green); font-weight:bold; font-size:0.9rem;" id="activeUserLabel"></div>
-            
-            <h3>القائمة الرئيسية</h3>
-            <a onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
-            <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
-            <a onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
-            <a onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشهرية</a>
-            <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
-            <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
-            <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
-            <a onclick="navigateTo('📜 القانون الأساسي')">📜 القانون الأساسي</a>
-            <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
-            <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
-            
-            <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج والقفل</a>
-        </div>
+    <!-- القائمة الجانبية والغطاء المعتم (مفصولان تماماً عن الأرشيف) -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <span class="close-btn" id="closeBtn" onclick="toggleSidebar()">×</span>
+        <div style="text-align:center; margin:10px 0; color:var(--accent-green); font-weight:bold; font-size:0.9rem;" id="activeUserLabel"></div>
+        
+        <h3>القائمة الرئيسية</h3>
+        <a onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
+        <a onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
+        <a onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
+        <a onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشهرية</a>
+        <a onclick="navigateTo('📊 التقارير المالية')">📊 التقارير المالية</a>
+        <a onclick="navigateTo('💰 المداخيل والمصاريف')">💰 المداخيل والمصاريف</a>
+        <a onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
+        <a onclick="navigateTo('📜 القانون الأساسي')">📜 القانون الأساسي</a>
+        <a onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
+        <a onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
+        
+        <a onclick="logout()" style="color: var(--danger-red); border-top: 2px solid #eee; margin-top: 10px;">🚪 تسجيل الخروج والقفل</a>
     </div>
 
     <div class="container">
@@ -238,7 +239,7 @@
             </div>
         </div>
 
-        <!-- 9. الأرشيف وملف الاستهلاك الشهري الشامل (مخصص للمحتويات فقط بعيداً عن أي سيد بار) -->
+        <!-- 9. الأرشيف (منعزل تماماً بدون أي سيد بار) -->
         <div id="view-archive" class="view-section" style="display: none;">
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center;" class="no-print">
