@@ -29,14 +29,14 @@ header {
 header h2 { margin: 0; font-size: 1.3rem; }
 .menu-btn { font-size: 26px; cursor: pointer; background: none; border: none; color: white; padding: 5px; line-height: 1; }
 
-/* السيد بار مخفي تماماً بالخارج ولا يظهر إلا عند تفعيله */
+/* إصلاح نهائي وقاطع للسيد بار ليكون مخفياً تماماً بالخارج ولا يظهر إلا عند النقر */
 .sidebar { 
-    height: 100%; width: 280px; position: fixed; top: 0; right: -290px; 
+    height: 100%; width: 280px; position: fixed; top: 0; right: -320px !important; 
     background-color: white; box-shadow: -5px 0 20px rgba(0,0,0,0.25); 
-    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100000; padding-top: 50px; 
+    transition: right 0.3s ease-in-out; z-index: 999999 !important; padding-top: 50px; 
     display: flex; flex-direction: column; overflow-y: auto; 
 }
-.sidebar.active { right: 0; }
+.sidebar.active { right: 0 !important; }
 .sidebar h3 { text-align: center; color: var(--primary-blue); margin-bottom: 15px; font-weight: bold; font-size: 1.1rem; }
 .sidebar a { 
     padding: 12px 18px; text-decoration: none; font-size: 14px; color: var(--text-dark); 
@@ -46,14 +46,14 @@ header h2 { margin: 0; font-size: 1.3rem; }
 
 .close-btn { 
     position: absolute; top: 10px; left: 10px; font-size: 28px; cursor: pointer; 
-    color: var(--danger-red); line-height: 1; z-index: 100005; background: #fff;
+    color: var(--danger-red); line-height: 1; z-index: 1000005; background: #fff;
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; 
     border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.15); 
 }
 
 .overlay { 
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(0,0,0,0.5); z-index: 99990; backdrop-filter: blur(2px); 
+    background: rgba(0,0,0,0.5); z-index: 999990; backdrop-filter: blur(2px); 
 }
 .overlay.active { display: block; }
 
