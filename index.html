@@ -248,8 +248,11 @@
 
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
                         <div style="flex:1;">
-                            <label class="form-label">القراءة السابقة:</label>
-                            <input type="number" id="prevReading" class="form-input" readonly ondblclick="enableEdit('prevReading')">
+                            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                                القراءة السابقة:
+                                <span onclick="document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('prevReading').focus();" style="cursor:pointer; color:var(--primary-blue); font-size:0.8rem; background:#e3f2fd; padding:3px 8px; border-radius:5px; border:1px solid #bbdefb;">✏️ تعديل</span>
+                            </label>
+                            <input type="number" id="prevReading" class="form-input" readonly>
                         </div>
                         <div style="flex:1;">
                             <label class="form-label">القراءة الحالية:</label>
@@ -339,7 +342,6 @@
                         <input type="text" id="transDesc" class="form-input" placeholder="شراء مضخة، أداء كهرباء...">
                     </div>
                     
-                    <!-- حقل المسح الضوئي (Scanner) -->
                     <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:8px; border:1px dashed var(--primary-blue);">
                         <label class="form-label" style="color:var(--primary-blue);">📸 تصوير أو إرفاق وصل (Scanner):</label>
                         <input type="file" id="transFile" accept="image/*" capture="environment" class="form-input">
@@ -385,7 +387,7 @@
             <!-- Financial Reports (Capital Ledger) -->
             <div id="view-reports" class="view-section">
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
                         <h3 class="card-title" style="border:none; margin:0; padding:0;">📊 التقرير المالي العام</h3>
                         <button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة التقرير المالي</button>
                     </div>
@@ -473,26 +475,26 @@
                 <div class="card no-print">
                     <h3 class="card-title">📜 تعديل القانون الأساسي</h3>
                     <textarea id="bylawInput" class="form-input" rows="6" placeholder="اكتب بنود القانون الأساسي هنا..."></textarea>
-                    <button class="btn btn-green" onclick="saveBylaws()">💾 حفظ القانون</button>
+                    <button class="btn btn-green" onclick="saveBylaws()">☁️ حفظ القانون في السحابة للجميع</button>
                 </div>
                 <div class="card no-print">
-                    <h3 class="card-title">📁 رفع تقارير ووثائق (PDF)</h3>
+                    <h3 class="card-title">📁 رفع تقارير ووثائق (تزامن مع السحابة)</h3>
                     <div class="form-group">
                         <label class="form-label">عنوان الوثيقة:</label>
-                        <input type="text" id="pdfReportTitle" class="form-input" placeholder="التقرير المالي 2023...">
+                        <input type="text" id="pdfReportTitle" class="form-input" placeholder="مثال: التقرير المالي السنوي...">
                     </div>
                     <div class="form-group">
                         <label class="form-label">اختر ملف (PDF/صورة):</label>
                         <input type="file" id="pdfReportFile" class="form-input" accept=".pdf,image/*">
                     </div>
-                    <button class="btn btn-blue" style="width:100%;" onclick="uploadFinancialPDF()">⬆️ رفع الوثيقة للأرشيف</button>
+                    <button class="btn btn-blue" style="width:100%;" onclick="uploadFinancialPDF()">⬆️ رفع وحفظ في سحابة الأرشيف</button>
                 </div>
                 <div class="card">
                     <h3 class="card-title">📜 القانون الأساسي للجمعية</h3>
-                    <div id="bylawDisplay" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; background:#f9f9f9; padding:15px; border-radius:8px;"></div>
+                    <div id="bylawDisplay" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; background:#f9f9f9; padding:15px; border-radius:8px;">جاري تحميل القانون...</div>
                 </div>
                 <div class="card">
-                    <h3 class="card-title">📁 الأرشيف العام للوثائق</h3>
+                    <h3 class="card-title">📁 الأرشيف العام للتقارير والوثائق</h3>
                     <div id="pdfReportsContainer"></div>
                 </div>
             </div>
