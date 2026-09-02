@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(checkSessionTimeout, 10000);
 });
 
-// ================== نظام الأمان ==================
+// ================== نظام الأمان والجلسات ==================
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
     if (!statusEl) return;
@@ -195,20 +195,16 @@ function logout(isTimeout = false) {
     localStorage.removeItem('tamda_counter');
     localStorage.removeItem('tamda_subname');
     localStorage.removeItem('tamda_last_active');
-    
     const loginCode = document.getElementById('loginCode');
     const loginError = document.getElementById('loginError');
     if(loginCode) loginCode.value = '';
     if(loginError) loginError.style.display = 'none';
-    
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
-    
     const appContent = document.getElementById('appContent');
     const loginScreen = document.getElementById('loginScreen');
     if(appContent) appContent.style.display = 'none';
     if(loginScreen) loginScreen.style.display = 'flex';
-    
     if(isTimeout === true) alert("تم تسجيل الخروج تلقائياً لمرور 3 دقائق دون نشاط لحماية البيانات.");
 }
 
@@ -256,7 +252,7 @@ function navigateTo(pageName) {
     }
 }
 
-// ================== البيانات والأرشيف ==================
+// ================== البيانات والأرشيف المحلية والسحابية ==================
 function loadLocalData() {
     subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
     transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
@@ -476,6 +472,7 @@ async function generateAndSendPIN(firestoreId) {
 
 async function deleteSubscriber(id) { if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { subscribers = subscribers.filter(s => s.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "subscribers", id)); renderSubscribers(); showToast('تم الحذف بنجاح'); } }
 
+// ================== بوابات ونظام المشتركين ==================
 function renderSubPortalBills() {
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname'); if(!subCounter) return;
     document.getElementById('portalSubName').textContent = subName; document.getElementById('portalSubCounter').textContent = subCounter;
@@ -509,11 +506,9 @@ async function markComplaintRead(id) { let comp = complaintsList.find(c => c.fir
 async function deleteComplaint(id) { if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "complaints", id)); renderAdminComplaints(); } }
 
 function processAutoMonthlyCapital() {
-    let currentMonth = new Date().toISOString().slice(0, 7);
-    let allPastMonths = new Set();
+    let currentMonth = new Date().toISOString().slice(0, 7); let allPastMonths = new Set();
     transactionsList.forEach(t => { if(t.month && t.month < currentMonth) allPastMonths.add(t.month); });
     donationsList.forEach(d => { if(d.month && d.month < currentMonth) allPastMonths.add(d.month); });
-    
     allPastMonths.forEach(async (monthStr) => {
         let alreadyClosed = capitalLedger.some(c => c.type === 'auto_month' && c.targetMonth === monthStr);
         if(!alreadyClosed) {
@@ -521,7 +516,6 @@ function processAutoMonthlyCapital() {
             transactionsList.filter(t => t.month === monthStr).forEach(t => { if(t.type === 'income') mIncome += Number(t.amount); else mExpense += Number(t.amount); });
             donationsList.filter(d => d.month === monthStr).forEach(d => { mDonations += Number(d.amount); });
             let netAmount = (mIncome + mDonations) - mExpense;
-            
             if (netAmount > 0) {
                 let ledgerEntry = { firestoreId: 'local_cap_' + Date.now() + Math.random(), date: new Date().toLocaleDateString('ar-MA'), targetMonth: monthStr, type: 'auto_month', amount: netAmount, desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString() };
                 capitalLedger.push(ledgerEntry); saveLocalData();
@@ -562,7 +556,6 @@ async function saveDonation() {
     document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; 
     showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
 }
-
 function renderDonations() { 
     const container = document.getElementById('donationsListContainer'); if(!container) return; container.innerHTML = ''; 
     if(donationsList.length === 0) return container.innerHTML = '<div style="text-align:center; padding:40px 20px; background:#f9f9f9; border-radius:12px; border:1px dashed #ccc;"><div style="font-size:3rem; margin-bottom:10px;">💖</div><p style="color:#666; font-size:1.1rem; margin:0;">لا توجد تبرعات مسجلة حتى الآن.</p></div>'; 
@@ -643,7 +636,7 @@ async function deleteTransaction(firestoreId, fileUrl) {
     } 
 }
 
-// ================== القانون الأساسي و التقارير (الكود الجديد للرفع المباشر) ==================
+// ================== القانون الأساسي و التقارير (الكود المعالج للـ WebView) ==================
 async function saveBylaws() { 
     let text = document.getElementById('bylawInput').value; document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.'; 
     showToast('⏳ جاري الحفظ في السحابة...');
@@ -659,7 +652,7 @@ async function saveBylaws() {
 async function uploadFinancialPDF() { 
     const fileInput = document.getElementById('pdfReportFile'); 
     const titleInput = document.getElementById('pdfReportTitle'); 
-    const uploadBtn = document.querySelector('button[onclick="uploadFinancialPDF()"]'); // استدعاء الزر لتغيير شكله
+    const uploadBtn = document.querySelector('button[onclick="uploadFinancialPDF()"]');
 
     if(!fileInput.files || fileInput.files.length === 0) return showToast('اختر ملف PDF أو صورة أولاً'); 
     if(!navigator.onLine) return showToast('⚠️ يجب الاتصال بالإنترنت لرفع التقارير للمكتب');
@@ -667,7 +660,7 @@ async function uploadFinancialPDF() {
     let file = fileInput.files[0]; 
     let title = titleInput.value.trim() || file.name; 
 
-    // إيقاف الزر وتغيير نصه
+    // إيقاف الزر لتجنب الضغط المتكرر
     if(uploadBtn) {
         uploadBtn.disabled = true;
         uploadBtn.textContent = '⏳ جاري الرفع... المرجو الانتظار';
@@ -676,43 +669,51 @@ async function uploadFinancialPDF() {
 
     showToast('⏳ بدأ رفع الوثيقة للسحابة...');
     
-    try {
-        // إنشاء اسم آمن للملف
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const fileName = 'reports/doc_' + Date.now() + '_' + safeName;
-        const storageRef = ref(storage, fileName);
-        
-        // استخدام تقنية uploadBytes المباشرة والسريعة
-        await uploadBytes(storageRef, file);
-        let downloadUrl = await getDownloadURL(storageRef);
-        
-        let reportObj = { 
-            title: title, 
-            fileUrl: downloadUrl, 
-            date: new Date().toLocaleDateString('ar-MA'), 
-            timestamp: new Date().toISOString() 
-        };
-        
-        let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-        reportObj.firestoreId = docRef.id;
-        
-        pdfReportsList.unshift(reportObj); // إضافته في أعلى القائمة
-        saveLocalData(); // حفظ محلي لتحديث الواجهة فوراً
-        
-        fileInput.value = ''; titleInput.value = ''; 
-        showToast('✅ تم رفع الوثيقة بنجاح ومشاركتها مع المكتب'); 
-        renderPDFReportsList(); 
-    } catch(err) {
-        console.error(err);
-        showToast('❌ حدث خطأ، فشل الرفع!');
-    } finally {
-        // إعادة الزر لشكله الطبيعي
-        if(uploadBtn) {
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-            uploadBtn.style.opacity = '1';
+    // استخدام FileReader كونه أكثر توافقية واستقراراً في بيئة (WebView / Acode)
+    let reader = new FileReader(); 
+    reader.onload = async function(e) {
+        try {
+            let base64 = e.target.result;
+            const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+            const fileName = 'reports/doc_' + Date.now() + '_' + safeName;
+            const storageRef = ref(storage, fileName);
+            
+            // استخدام uploadString بدلاً من uploadBytes لتفادي مشاكل الأندرويد
+            await uploadString(storageRef, base64, 'data_url');
+            let downloadUrl = await getDownloadURL(storageRef);
+            
+            let reportObj = { 
+                title: title, 
+                fileUrl: downloadUrl, 
+                date: new Date().toLocaleDateString('ar-MA'), 
+                timestamp: new Date().toISOString() 
+            };
+            
+            let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+            reportObj.firestoreId = docRef.id;
+            
+            pdfReportsList.unshift(reportObj); 
+            saveLocalData(); 
+            
+            fileInput.value = ''; titleInput.value = ''; 
+            showToast('✅ تم رفع الوثيقة بنجاح ومشاركتها مع المكتب'); 
+            renderPDFReportsList(); 
+        } catch(err) {
+            console.error(err);
+            showToast('❌ حدث خطأ، فشل الرفع!');
+        } finally {
+            if(uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+                uploadBtn.style.opacity = '1';
+            }
         }
-    }
+    };
+    reader.onerror = function() {
+        showToast('❌ خطأ في قراءة الملف من الهاتف');
+        if(uploadBtn) { uploadBtn.disabled = false; uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف'; uploadBtn.style.opacity = '1'; }
+    };
+    reader.readAsDataURL(file); 
 }
 
 function renderPDFReportsList() { 
@@ -734,10 +735,11 @@ async function deletePDFReport(id, fileUrl) {
     } 
 }
 
-// ================== الفوترة والتحصيل ==================
+// ================== الفوترة والتحصيل والتنبيهات الذكية ==================
 function autoFillSubscriber() { 
     const counterInput = document.getElementById('counterNum').value.trim(); 
     const sub = subscribers.find(s => s.counter == counterInput); 
+    
     if (sub) { 
         document.getElementById('subscriberName').value = sub.name; 
         if(sub.lastBilledMonth) document.getElementById('billingMonth').value = getNextMonth(sub.lastBilledMonth); 
@@ -760,6 +762,9 @@ function autoFillSubscriber() {
         document.getElementById('currReading').value = ''; 
         document.getElementById('delayMonths').value = 0; 
     } 
+    
+    // استدعاء دالة اختيار النظام بشكل تلقائي
+    window.autoAdjustTariff();
     calculateBill(); 
 }
 
@@ -771,7 +776,76 @@ function getNextMonth(monthString) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
-function calculateBill() { const counterNumInput = document.getElementById('counterNum').value.trim(); const subName = document.getElementById('subscriberName').value || 'غير محدد'; const billingMonth = document.getElementById('billingMonth').value || 'غير محدد'; const prev = parseFloat(document.getElementById('prevReading').value) || 0; const curr = parseFloat(document.getElementById('currReading').value) || 0; const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0; const tariffSystem = document.getElementById('tariffSystem').value; const isExempt = document.getElementById('exemptionCheck').checked; const alertBox = document.getElementById('smartAlertBox'); if (!counterNumInput) return; if (curr < prev) return showToast('القراءة الحالية أقل من السابقة!'); const consumption = curr - prev; currentConsumptionData = consumption; let alertMessages = []; let currentCounterNum = parseInt(counterNumInput); let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth)); if (prevCounterExists || nextCounterExists) alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور.'); let sub = subscribers.find(s => s.counter == counterNumInput); let historicAvg = sub ? (sub.avgConsumption || 25) : 25; if (historicAvg > 20 && consumption < 10) alertMessages.push(`⚠️ تنبيه: هذا المنخرط يستهلك عادة أكثر من 20، وسجلت ${consumption} فقط!`); if (alertMessages.length > 0) { alertBox.style.display = 'block'; alertBox.innerHTML = alertMessages.join('<br>'); } else { alertBox.style.display = 'none'; alertBox.innerHTML = ''; } currentT1 = 0; currentT2 = 0; currentT3 = 0; let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; if (tariffSystem === 'current') { maintenance = appSettings.maintenance; if (consumption <= 15) { currentT1 = consumption; } else if (consumption <= 20) { currentT1 = 15; currentT2 = consumption - 15; } else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; } else { maintenance = 15; if (consumption <= 20) { currentT1 = consumption; } else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } else { currentT1 = 20; currentT2 = 10; currentT3 = consumption - 30; } t1_cost = currentT1 * 3; t2_cost = currentT2 * 5; t3_cost = currentT3 * 7; } const consumptionCost = t1_cost + t2_cost + t3_cost; document.getElementById('row-t1').style.display = currentT1 > 0 ? 'flex' : 'none'; document.getElementById('t1-val').textContent = `${currentT1} m³ = ${t1_cost} درهم`; document.getElementById('row-t2').style.display = currentT2 > 0 ? 'flex' : 'none'; document.getElementById('t2-val').textContent = `${currentT2} m³ = ${t2_cost} درهم`; document.getElementById('row-t3').style.display = currentT3 > 0 ? 'flex' : 'none'; document.getElementById('t3-val').textContent = `${currentT3} m³ = ${t3_cost} درهم`; let penaltyCost = (delayMonths >= 2) ? appSettings.penalty : 0; if (penaltyCost > 0) { document.getElementById('penaltyRow').style.display = 'flex'; document.getElementById('printPenalty').textContent = penaltyCost + ' درهم'; } else { document.getElementById('penaltyRow').style.display = 'none'; } currentBillTotal = isExempt ? 0 : (consumptionCost + maintenance + penaltyCost); if(isExempt) document.getElementById('exemptionNotice').style.display = 'flex'; else document.getElementById('exemptionNotice').style.display = 'none'; document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; }
+function calculateBill() { 
+    const counterNumInput = document.getElementById('counterNum').value.trim(); 
+    const subName = document.getElementById('subscriberName').value || 'غير محدد'; 
+    const billingMonth = document.getElementById('billingMonth').value || 'غير محدد'; 
+    const prev = parseFloat(document.getElementById('prevReading').value) || 0; 
+    const curr = parseFloat(document.getElementById('currReading').value) || 0; 
+    const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0; 
+    const tariffSystem = document.getElementById('tariffSystem').value; 
+    const isExempt = document.getElementById('exemptionCheck').checked; 
+    const alertBox = document.getElementById('smartAlertBox'); 
+    
+    if (!counterNumInput) return; 
+    if (curr < prev) return showToast('القراءة الحالية أقل من السابقة!'); 
+    
+    const consumption = curr - prev; 
+    currentConsumptionData = consumption; 
+    let alertMessages = []; 
+    let currentCounterNum = parseInt(counterNumInput); 
+    
+    let sub = subscribers.find(s => s.counter == counterNumInput); 
+    
+    // 💡 التنبيهات الذكية تظهر فقط للمنخرطين الذين لديهم فواتير سابقة (تجاهل شهر 5 الأول)
+    if (sub && sub.lastBilledMonth && sub.lastBilledMonth !== '') {
+        let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth) && s.lastBilledMonth !== ''); 
+        let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth) && s.lastBilledMonth !== ''); 
+        if (prevCounterExists || nextCounterExists) alertMessages.push('⚠️ تنبيه: يبدو أنك نسيت قراءة عداد مجاور.'); 
+        
+        let historicAvg = sub.avgConsumption || 25; 
+        if (historicAvg > 20 && consumption <= 3) alertMessages.push(`⚠️ تنبيه: هذا المنخرط يستهلك عادة معدل ${historicAvg}، وسجلت ${consumption} فقط! تأكد من الرقم.`); 
+    }
+    
+    if (alertMessages.length > 0) { 
+        alertBox.style.display = 'block'; alertBox.innerHTML = alertMessages.join('<br>'); 
+    } else { 
+        alertBox.style.display = 'none'; alertBox.innerHTML = ''; 
+    } 
+    
+    currentT1 = 0; currentT2 = 0; currentT3 = 0; 
+    let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; 
+    
+    // 💡 الحساب بناءً على اختيار النظام (القديم أو الجديد)
+    if (tariffSystem === 'old') { 
+        maintenance = appSettings.maintenance; 
+        if (consumption <= 15) { currentT1 = consumption; } 
+        else if (consumption <= 20) { currentT1 = 15; currentT2 = consumption - 15; } 
+        else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } 
+        t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; 
+    } else { 
+        // النظام الجديد المقترح
+        maintenance = 15; 
+        if (consumption <= 20) { currentT1 = consumption; } 
+        else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } 
+        else { currentT1 = 20; currentT2 = 10; currentT3 = consumption - 30; } 
+        t1_cost = currentT1 * 3; t2_cost = currentT2 * 5; t3_cost = currentT3 * 7; 
+    } 
+    
+    const consumptionCost = t1_cost + t2_cost + t3_cost; 
+    document.getElementById('row-t1').style.display = currentT1 > 0 ? 'flex' : 'none'; document.getElementById('t1-val').textContent = `${currentT1} m³ = ${t1_cost} درهم`; 
+    document.getElementById('row-t2').style.display = currentT2 > 0 ? 'flex' : 'none'; document.getElementById('t2-val').textContent = `${currentT2} m³ = ${t2_cost} درهم`; 
+    document.getElementById('row-t3').style.display = currentT3 > 0 ? 'flex' : 'none'; document.getElementById('t3-val').textContent = `${currentT3} m³ = ${t3_cost} درهم`; 
+    
+    let penaltyCost = (delayMonths >= 2) ? appSettings.penalty : 0; 
+    if (penaltyCost > 0) { document.getElementById('penaltyRow').style.display = 'flex'; document.getElementById('printPenalty').textContent = penaltyCost + ' درهم'; } 
+    else { document.getElementById('penaltyRow').style.display = 'none'; } 
+    
+    currentBillTotal = isExempt ? 0 : (consumptionCost + maintenance + penaltyCost); 
+    if(isExempt) document.getElementById('exemptionNotice').style.display = 'flex'; else document.getElementById('exemptionNotice').style.display = 'none'; 
+    document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; 
+}
+
 async function saveBill(isPaid) { if(currentBillTotal >= 0) { const counterInput = document.getElementById('counterNum').value.trim(); const subNameStr = document.getElementById('subscriberName').value || 'غير محدد'; const curr = parseFloat(document.getElementById('currReading').value) || 0; const currentMonth = document.getElementById('billingMonth').value; const isExempt = document.getElementById('exemptionCheck').checked; const sub = subscribers.find(s => s.counter == counterInput); let billArchiveObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; try { archiveBills.push(billArchiveObj); if (sub) { let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1); let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal); sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt; sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData)); if(navigator.onLine && !sub.firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }).catch(() => {}); } if (isPaid && currentBillTotal > 0) { let transObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transObj); archiveFinance.push(transObj); recalculateFinancials(); if(navigator.onLine) addDoc(collection(db, "transactions"), transObj); } saveLocalData(); if (navigator.onLine) await addDoc(collection(db, "archive_bills"), billArchiveObj); else queueOfflineAction('add_bill', billArchiveObj); showToast('تم حفظ الفاتورة بنجاح'); currentBillTotal = 0; document.getElementById('billResult').style.display = 'none'; document.getElementById('currReading').value = ''; document.getElementById('exemptionCheck').checked = false; document.getElementById('smartAlertBox').style.display = 'none'; let nextCounter = parseInt(counterInput); if (!isNaN(nextCounter)) document.getElementById('counterNum').value = nextCounter + 1; autoFillSubscriber(); } catch (e) { showToast('فشل الحفظ'); } } else { showToast('يرجى حساب الفاتورة أولاً'); } }
 function sendWhatsAppNotification() { const counterInput = document.getElementById('counterNum').value.trim(); const currentMonth = document.getElementById('billingMonth').value || 'الحالي'; const sub = subscribers.find(s => s.counter == counterInput); if (!sub || !sub.phone) return showToast('رقم هاتف المشترك غير مسجل!'); let message = `مرحباً السيد(ة) ${sub.name}،\nفاتورة استهلاك ماء الشرب لشهر ${currentMonth} هي: ${currentBillTotal} درهم.\nالمرجو المبادرة بالأداء وشكراً.`; window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(message)}`, '_blank'); }
 function enableEdit(elementId) { document.getElementById(elementId).removeAttribute('readonly'); document.getElementById(elementId).focus(); showToast('تم فتح الحقل للتعديل'); }
@@ -803,49 +877,4 @@ function toggleStatInputs() { const type = document.getElementById('statTypeSele
 function renderAdvancedStats() { const container = document.getElementById('statsContainer'); if(!container) return; const type = document.getElementById('statTypeSelect').value; let filteredBills = []; let periodTitle = ''; if (type === 'monthly') { const monthSelect = document.getElementById('statsMonthSelect'); if(!monthSelect.value) { let now = new Date(); monthSelect.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'); } filteredBills = archiveBills.filter(b => b.month === monthSelect.value); periodTitle = `شهر: ${monthSelect.value}`; } else { const yearSelect = document.getElementById('statsYearSelect'); filteredBills = archiveBills.filter(b => b.month && b.month.startsWith(yearSelect.value)); periodTitle = `سنة: ${yearSelect.value}`; } if(filteredBills.length === 0) return container.innerHTML = `<p style="margin-top:15px; color:#666;">لا توجد بيانات لـ (${periodTitle}).</p>`; let totalWater = 0, totalT1 = 0, totalT2 = 0, totalT3 = 0, maxConsumption = -1, topConsumer = '---'; filteredBills.forEach(b => { let cons = Number(b.consumption || 0); totalWater += cons; totalT1 += Number(b.t1 || 0); totalT2 += Number(b.t2 || 0); totalT3 += Number(b.t3 || 0); if(cons > maxConsumption) { maxConsumption = cons; topConsumer = `عداد (${b.counter}) ${b.name} (${cons} m³)`; } }); let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0; let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0; let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0; container.innerHTML = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;"><div class="stat-row"><span>الاستهلاك (${periodTitle}):</span><strong style="color:var(--primary-blue); font-size:1.2rem;">${totalWater} m³</strong></div><div class="stat-row"><span>الأكثر استهلاكاً:</span><strong class="text-danger">${topConsumer}</strong></div><h4 style="margin:10px 0 5px 0; color:var(--primary-blue);">📈 مبيانات الأشطر:</h4><div class="chart-container"><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الأول</span><span>${p1}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p1}%; background: var(--accent-green);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثاني</span><span>${p2}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p2}%; background: var(--secondary-cyan);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثالث</span><span>${p3}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p3}%; background: var(--danger-red);"></div></div></div></div></div>`; }
 
 // ================== ربط الدوال بالواجهة ==================
-window.checkAuth = checkAuth;
-window.handleEnter = handleEnter;
-window.authenticate = authenticate;
-window.logout = logout;
-window.toggleSidebar = toggleSidebar;
-window.showToast = showToast;
-window.navigateTo = navigateTo;
-window.printDonations = printDonations;
-window.saveSubscriber = saveSubscriber;
-window.editSubscriber = editSubscriber;
-window.resetSubForm = resetSubForm;
-window.renderSubscribers = renderSubscribers;
-window.generateAndSendPIN = generateAndSendPIN;
-window.deleteSubscriber = deleteSubscriber;
-window.renderSubPortalBills = renderSubPortalBills;
-window.submitComplaint = submitComplaint;
-window.renderAdminComplaints = renderAdminComplaints;
-window.markComplaintRead = markComplaintRead;
-window.deleteComplaint = deleteComplaint;
-window.saveDonation = saveDonation;
-window.renderDonations = renderDonations;
-window.deleteDonation = deleteDonation;
-window.updateFinancialDashboard = updateFinancialDashboard;
-window.saveTransaction = saveTransaction;
-window.renderTransactions = renderTransactions;
-window.deleteTransaction = deleteTransaction;
-window.uploadFinancialPDF = uploadFinancialPDF;
-window.renderPDFReportsList = renderPDFReportsList;
-window.deletePDFReport = deletePDFReport;
-window.calculateBill = calculateBill;
-window.saveBill = saveBill;
-window.sendWhatsAppNotification = sendWhatsAppNotification;
-window.autoFillSubscriber = autoFillSubscriber;
-window.enableEdit = enableEdit;
-window.renderDebts = renderDebts;
-window.collectDebt = collectDebt;
-window.renderArchive = renderArchive;
-window.deleteArchiveBill = deleteArchiveBill;
-window.deleteArchiveFinance = deleteArchiveFinance;
-window.toggleStatInputs = toggleStatInputs;
-window.renderAdvancedStats = renderAdvancedStats;
-window.addManualCapital = addManualCapital;
-window.renderCapital = renderCapital;
-window.deleteCapitalEntry = deleteCapitalEntry;
-window.saveBylaws = saveBylaws;
-window.saveSettings = saveSettings;
+window.checkAuth = checkAuth; window.handleEnter = handleEnter; window.authenticate = authenticate; window.logout = logout; window.toggleSidebar = toggleSidebar; window.showToast = showToast; window.navigateTo = navigateTo; window.printDonations = printDonations; window.saveSubscriber = saveSubscriber; window.editSubscriber = editSubscriber; window.resetSubForm = resetSubForm; window.renderSubscribers = renderSubscribers; window.generateAndSendPIN = generateAndSendPIN; window.deleteSubscriber = deleteSubscriber; window.renderSubPortalBills = renderSubPortalBills; window.submitComplaint = submitComplaint; window.renderAdminComplaints = renderAdminComplaints; window.markComplaintRead = markComplaintRead; window.deleteComplaint = deleteComplaint; window.saveDonation = saveDonation; window.renderDonations = renderDonations; window.deleteDonation = deleteDonation; window.updateFinancialDashboard = updateFinancialDashboard; window.saveTransaction = saveTransaction; window.renderTransactions = renderTransactions; window.deleteTransaction = deleteTransaction; window.uploadFinancialPDF = uploadFinancialPDF; window.renderPDFReportsList = renderPDFReportsList; window.deletePDFReport = deletePDFReport; window.calculateBill = calculateBill; window.saveBill = saveBill; window.sendWhatsAppNotification = sendWhatsAppNotification; window.autoFillSubscriber = autoFillSubscriber; window.enableEdit = enableEdit; window.renderDebts = renderDebts; window.collectDebt = collectDebt; window.renderArchive = renderArchive; window.deleteArchiveBill = deleteArchiveBill; window.deleteArchiveFinance = deleteArchiveFinance; window.toggleStatInputs = toggleStatInputs; window.renderAdvancedStats = renderAdvancedStats; window.addManualCapital = addManualCapital; window.renderCapital = renderCapital; window.deleteCapitalEntry = deleteCapitalEntry; window.saveBylaws = saveBylaws; window.saveSettings = saveSettings;
