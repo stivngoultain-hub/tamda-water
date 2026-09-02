@@ -67,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if(navigator.onLine) { loadDataFromCloud(); }
     
-    // مراقبة النشاط لتحديث مهلة الخمول (3 دقائق)
     ['click', 'touchstart', 'keypress', 'scroll'].forEach(evt => document.addEventListener(evt, updateLastActive));
     setInterval(checkSessionTimeout, 10000);
 });
@@ -91,7 +90,7 @@ function checkSessionTimeout() {
     if(localStorage.getItem('tamda_auth') === 'true') {
         let last = parseInt(localStorage.getItem('tamda_last_active') || '0');
         if(last > 0 && (Date.now() - last > SESSION_TIMEOUT)) {
-            logout(true); // تسجيل خروج تلقائي لمرور 3 دقائق دون تفاعل
+            logout(true);
         }
     }
 }
@@ -193,7 +192,6 @@ function authenticate() {
 }
 
 function logout(isTimeout = false) { 
-    // مسح مفاتيح المصادقة عند تسجيل الخروج المتعمد أو انتهاء المهلة
     localStorage.removeItem('tamda_auth');
     localStorage.removeItem('tamda_role');
     localStorage.removeItem('tamda_counter');
@@ -284,11 +282,23 @@ function saveLocalData() {
     localStorage.setItem('local_capital', JSON.stringify(capitalLedger));
 }
 
+// الدالة المركزية لإعادة حساب المجاميع المالية فوراً عند أي تعديل أو حذف
 function recalculateFinancials() {
-    let transIncome = 0; totalExpense = 0;
-    transactionsList.forEach(t => { if(t.type === 'income') transIncome += Number(t.amount || 0); else totalExpense += Number(t.amount || 0); });
+    let transIncome = 0; 
+    totalExpense = 0;
+    transactionsList.forEach(t => { 
+        if(t.type === 'income') {
+            transIncome += Number(t.amount || 0); 
+        } else {
+            totalExpense += Number(t.amount || 0); 
+        }
+    });
+
     totalDonationsIncome = 0;
-    donationsList.forEach(d => { totalDonationsIncome += Number(d.amount || 0); });
+    donationsList.forEach(d => { 
+        totalDonationsIncome += Number(d.amount || 0); 
+    });
+
     totalIncome = transIncome + totalDonationsIncome;
 }
 
@@ -556,7 +566,26 @@ async function deleteDonation(id) { if(confirm('هل تريد حذف التبر�
 function updateFinancialDashboard() { const netBalance = totalIncome - totalExpense; const normalIncome = totalIncome - totalDonationsIncome; if(document.getElementById('normalIncomeReport')) document.getElementById('normalIncomeReport').textContent = normalIncome + ' درهم'; if(document.getElementById('donationsIncomeReport')) document.getElementById('donationsIncomeReport').textContent = totalDonationsIncome + ' درهم'; if(document.getElementById('totalIncomeReport')) document.getElementById('totalIncomeReport').textContent = totalIncome + ' درهم'; if(document.getElementById('totalExpenseReport')) document.getElementById('totalExpenseReport').textContent = totalExpense + ' درهم'; }
 async function saveTransaction() { const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); let transactionObj = { firestoreId: 'local_' + Date.now(), month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transactionObj); archiveFinance.push(transactionObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), transactionObj); await addDoc(collection(db, "archive_finance"), transactionObj); } else { queueOfflineAction('add_transaction', transactionObj); } document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; showToast('تم تسجيل العملية المالية'); renderTransactions(); updateFinancialDashboard(); }
 function renderTransactions() { const container = document.getElementById('transactionsListContainer'); if(!container) return; container.innerHTML = ''; if(transactionsList.length === 0) { container.innerHTML = '<p>لا توجد عمليات مسجلة.</p>'; return; } transactionsList.slice().reverse().forEach((t) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button>`; container.appendChild(div); }); }
-async function deleteTransaction(firestoreId) { if(confirm('هل تريد حذف هذه العملية المالية؟')) { transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); recalculateFinancials(); saveLocalData(); if(navigator.onLine && !firestoreId.startsWith('local_')) await deleteDoc(doc(db, "transactions", firestoreId)); renderTransactions(); updateFinancialDashboard(); } }
+
+// تم تحديث هذه الدالة لتقوم بالحذف وإعادة حساب المجاميع المالية فوراً لتختفي أثار الحذف من التقارير
+async function deleteTransaction(firestoreId) { 
+    if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
+        transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
+        archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
+        recalculateFinancials(); // إعادة الحساب الفوري
+        saveLocalData(); 
+        
+        if(navigator.onLine && !firestoreId.startsWith('local_')) {
+            await deleteDoc(doc(db, "transactions", firestoreId)).catch(() => {});
+            await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(() => {});
+        }
+        
+        renderTransactions(); 
+        updateFinancialDashboard(); 
+        renderArchive();
+        showToast('تم حذف العملية وتحديث التقارير بنجاح!');
+    } 
+}
 
 // ================== الوثائق وPDF ==================
 function saveBylaws() { let text = document.getElementById('bylawInput').value; localStorage.setItem('tamda_bylaws', text); document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.'; showToast('تم حفظ القانون الأساسي'); }
