@@ -543,7 +543,6 @@
         </div>
     </div>
 
-    <!-- Script to toggle login counter field for subscriber -->
     <script>
         function toggleLoginCounter() {
             const role = document.getElementById('userRole').value;
@@ -555,7 +554,6 @@
             }
         }
         
-        // تغيير نظام الأشطر تلقائياً بناءً على الشهر المدخل
         window.autoAdjustTariff = function() {
             const monthInput = document.getElementById('billingMonth').value;
             const tariffSelect = document.getElementById('tariffSystem');
@@ -567,8 +565,6 @@
             }
         };
     </script>
-
-    <!-- Main Logic Script (must be type module due to Firebase) -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
