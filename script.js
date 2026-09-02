@@ -268,7 +268,12 @@ function loadLocalData() {
     archiveBills = JSON.parse(localStorage.getItem('local_bills')) || [];
     archiveFinance = JSON.parse(localStorage.getItem('local_fin')) || [];
     complaintsList = JSON.parse(localStorage.getItem('local_complaints')) || [];
+    
+    // تنظيف تلقائي لسجل الصندوق من أي قيم سالبة تراكمية قديمة تم جلبها
     capitalLedger = JSON.parse(localStorage.getItem('local_capital')) || [];
+    capitalLedger = capitalLedger.filter(item => Number(item.amount) > 0);
+    saveLocalData();
+
     recalculateFinancials();
 }
 
@@ -348,7 +353,14 @@ async function loadDataFromCloud() {
         archiveFinance = []; finSnap.forEach(d => archiveFinance.push({ firestoreId: d.id, ...d.data() }));
         
         const capSnap = await getDocs(collection(db, "capital_ledger"));
-        capitalLedger = []; capSnap.forEach(d => capitalLedger.push({ firestoreId: d.id, ...d.data() }));
+        capitalLedger = []; 
+        capSnap.forEach(d => {
+            let item = d.data();
+            // تجاهل أي رصيد سالب قادم من السحابة
+            if(Number(item.amount) > 0) {
+                capitalLedger.push({ firestoreId: d.id, ...item });
+            }
+        });
 
         saveLocalData(); recalculateFinancials();
         
@@ -530,13 +542,16 @@ function processAutoMonthlyCapital() {
             donationsList.filter(d => d.month === monthStr).forEach(d => { mDonations += Number(d.amount); });
             let netAmount = (mIncome + mDonations) - mExpense;
             
-            let ledgerEntry = {
-                firestoreId: 'local_cap_' + Date.now() + Math.random(), date: new Date().toLocaleDateString('ar-MA'),
-                targetMonth: monthStr, type: 'auto_month', amount: netAmount,
-                desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString()
-            };
-            capitalLedger.push(ledgerEntry); saveLocalData();
-            if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry); else queueOfflineAction('add_capital', ledgerEntry);
+            // عدم قبول أي رصيد سالب عند الإغلاق التلقائي
+            if (netAmount > 0) {
+                let ledgerEntry = {
+                    firestoreId: 'local_cap_' + Date.now() + Math.random(), date: new Date().toLocaleDateString('ar-MA'),
+                    targetMonth: monthStr, type: 'auto_month', amount: netAmount,
+                    desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString()
+                };
+                capitalLedger.push(ledgerEntry); saveLocalData();
+                if(navigator.onLine) await addDoc(collection(db, "capital_ledger"), ledgerEntry); else queueOfflineAction('add_capital', ledgerEntry);
+            }
         }
     });
 }
@@ -553,11 +568,17 @@ function renderCapital() {
     const container = document.getElementById('capitalLedgerContainer'); if(!container) return;
     let totalCap = 0; container.innerHTML = '';
     
-    // تنظيف وترتيب السجل المالي للصندوق وتصحيح أي قيم سالبة تراكمية غير منطقية
+    // تصفية أي مبلغ سالب فوري منعاً لظهوره في الواجهة تماماً
+    capitalLedger = capitalLedger.filter(item => Number(item.amount) > 0);
+    saveLocalData();
+
     capitalLedger.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(item => {
-        totalCap += Number(item.amount); 
-        let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
-        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">${item.amount} درهم</strong><span>${item.desc} | التاريخ: ${item.date}</span></div></div>`;
+        let amt = Number(item.amount);
+        if(amt > 0) {
+            totalCap += amt; 
+            let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
+            container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">${amt} درهم</strong><span>${item.desc} | التاريخ: ${item.date}</span></div></div>`;
+        }
     });
 
     if(capitalLedger.length === 0) container.innerHTML = '<p>لا توجد مبالغ في الصندوق.</p>';
@@ -574,8 +595,6 @@ async function deleteTransaction(firestoreId) {
     if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
         transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
         archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
-        
-        // إزالة الأثر المالي المرتبط بهذه العملية من سجل الصندوق (Capital Ledger) إذا كان مسجلاً هناك
         capitalLedger = capitalLedger.filter(c => c.firestoreId !== firestoreId);
 
         recalculateFinancials(); 
