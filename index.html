@@ -243,7 +243,7 @@
 
                     <div class="form-group">
                         <label class="form-label">شهر الفوترة:</label>
-                        <input type="month" id="billingMonth" class="form-input">
+                        <input type="month" id="billingMonth" class="form-input" onchange="window.autoAdjustTariff()">
                     </div>
 
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
@@ -268,8 +268,8 @@
                     <div class="form-group">
                         <label class="form-label">نظام الأشطر:</label>
                         <select id="tariffSystem" class="form-select">
-                            <option value="current">النظام الحالي المعتمد بالجمعية</option>
-                            <option value="proposed">النظام المقترح الجديد</option>
+                            <option value="old">النظام القديم</option>
+                            <option value="new">النظام الجديد</option>
                         </select>
                     </div>
 
@@ -387,7 +387,7 @@
             <!-- Financial Reports (Capital Ledger) -->
             <div id="view-reports" class="view-section">
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
                         <h3 class="card-title" style="border:none; margin:0; padding:0;">📊 التقرير المالي العام</h3>
                         <button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة التقرير المالي</button>
                     </div>
@@ -554,6 +554,18 @@
                 counterInput.style.display = 'none';
             }
         }
+        
+        // تغيير نظام الأشطر تلقائياً بناءً على الشهر المدخل
+        window.autoAdjustTariff = function() {
+            const monthInput = document.getElementById('billingMonth').value;
+            const tariffSelect = document.getElementById('tariffSystem');
+            if(!monthInput) return;
+            if(monthInput <= "2026-06") {
+                tariffSelect.value = "old";
+            } else {
+                tariffSelect.value = "new";
+            }
+        };
     </script>
 
     <!-- Main Logic Script (must be type module due to Firebase) -->
