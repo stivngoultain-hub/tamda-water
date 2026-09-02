@@ -302,6 +302,7 @@
                             <button class="btn btn-outline" style="flex:1;" onclick="saveBill(false)">📝 تسجيل كدين</button>
                         </div>
                         <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة عبر واتساب</button>
+                        <button class="btn btn-outline no-print" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية</button>
                     </div>
                 </div>
             </div>
@@ -384,7 +385,10 @@
             <!-- Financial Reports (Capital Ledger) -->
             <div id="view-reports" class="view-section">
                 <div class="card">
-                    <h3 class="card-title">📊 التقرير المالي العام</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                        <h3 class="card-title" style="border:none; margin:0; padding:0;">📊 التقرير المالي العام</h3>
+                        <button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة التقرير المالي</button>
+                    </div>
                     <div class="stat-grid">
                         <div class="stat-card" style="border-bottom-color: var(--accent-green);">
                             <h3 id="normalIncomeReport" style="color:var(--accent-green);">0 درهم</h3>
@@ -447,7 +451,10 @@
             <!-- Archive View -->
             <div id="view-archive" class="view-section">
                 <div class="card">
-                    <h3 class="card-title">🗄️ الأرشيف والتخزين</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                        <h3 class="card-title" style="border:none; margin:0; padding:0;">🗄️ الأرشيف والتخزين</h3>
+                        <button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة سجل الأرشيف</button>
+                    </div>
                     <p style="margin-bottom: 15px; color: #666; font-size: 0.9rem;" class="no-print">هنا تجد جميع الفواتير والعمليات المالية المحفوظة مرتبة حسب الأشهر مع الوثائق الممسوحة ضوئياً (PDF).</p>
                     <div id="archiveContainer"></div>
                 </div>
