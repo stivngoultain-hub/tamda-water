@@ -31,7 +31,7 @@ let transactionsList = []; let donationsList = [];
 let archiveBills = []; let archiveFinance = [];
 let capitalLedger = []; 
 
-const SESSION_TIMEOUT = 3 * 60 * 1000; // 3 دقائق خمول قصوى
+const SESSION_TIMEOUT = 3 * 60 * 1000; 
 
 const views = {
     '🏠 لوحة القيادة': 'view-dashboard', 
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(checkSessionTimeout, 10000);
 });
 
-// ================== نظام الأمان والجلسات المستقر ==================
+// ================== نظام الأمان والجلسات ==================
 
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
@@ -282,7 +282,6 @@ function saveLocalData() {
     localStorage.setItem('local_capital', JSON.stringify(capitalLedger));
 }
 
-// الدالة المركزية لإعادة حساب المجاميع المالية فوراً عند أي تعديل أو حذف
 function recalculateFinancials() {
     let transIncome = 0; 
     totalExpense = 0;
@@ -553,10 +552,14 @@ async function addManualCapital() {
 function renderCapital() {
     const container = document.getElementById('capitalLedgerContainer'); if(!container) return;
     let totalCap = 0; container.innerHTML = '';
+    
+    // تنظيف وترتيب السجل المالي للصندوق وتصحيح أي قيم سالبة تراكمية غير منطقية
     capitalLedger.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach(item => {
-        totalCap += Number(item.amount); let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
+        totalCap += Number(item.amount); 
+        let color = item.type === 'auto_month' ? 'var(--accent-green)' : 'var(--primary-blue)';
         container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">${item.amount} درهم</strong><span>${item.desc} | التاريخ: ${item.date}</span></div></div>`;
     });
+
     if(capitalLedger.length === 0) container.innerHTML = '<p>لا توجد مبالغ في الصندوق.</p>';
     if(document.getElementById('mainCapitalAmount')) document.getElementById('mainCapitalAmount').textContent = totalCap + " درهم";
 }
@@ -567,12 +570,15 @@ function updateFinancialDashboard() { const netBalance = totalIncome - totalExpe
 async function saveTransaction() { const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); let transactionObj = { firestoreId: 'local_' + Date.now(), month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; transactionsList.push(transactionObj); archiveFinance.push(transactionObj); recalculateFinancials(); saveLocalData(); if (navigator.onLine) { await addDoc(collection(db, "transactions"), transactionObj); await addDoc(collection(db, "archive_finance"), transactionObj); } else { queueOfflineAction('add_transaction', transactionObj); } document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; showToast('تم تسجيل العملية المالية'); renderTransactions(); updateFinancialDashboard(); }
 function renderTransactions() { const container = document.getElementById('transactionsListContainer'); if(!container) return; container.innerHTML = ''; if(transactionsList.length === 0) { container.innerHTML = '<p>لا توجد عمليات مسجلة.</p>'; return; } transactionsList.slice().reverse().forEach((t) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button>`; container.appendChild(div); }); }
 
-// تم تحديث هذه الدالة لتقوم بالحذف وإعادة حساب المجاميع المالية فوراً لتختفي أثار الحذف من التقارير
 async function deleteTransaction(firestoreId) { 
     if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
         transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
         archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
-        recalculateFinancials(); // إعادة الحساب الفوري
+        
+        // إزالة الأثر المالي المرتبط بهذه العملية من سجل الصندوق (Capital Ledger) إذا كان مسجلاً هناك
+        capitalLedger = capitalLedger.filter(c => c.firestoreId !== firestoreId);
+
+        recalculateFinancials(); 
         saveLocalData(); 
         
         if(navigator.onLine && !firestoreId.startsWith('local_')) {
@@ -583,7 +589,8 @@ async function deleteTransaction(firestoreId) {
         renderTransactions(); 
         updateFinancialDashboard(); 
         renderArchive();
-        showToast('تم حذف العملية وتحديث التقارير بنجاح!');
+        renderCapital();
+        showToast('تم حذف العملية وتحديث الصندوق والتقارير بنجاح!');
     } 
 }
 
