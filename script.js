@@ -263,15 +263,14 @@ function navigateTo(pageName) {
 }
 
 function loadLocalData() {
-    subscribers = (JSON.parse(localStorage.getItem('local_subs')) || []).filter(s => s.firestoreId && !s.firestoreId.startsWith('local_'));
-    transactionsList = (JSON.parse(localStorage.getItem('local_trans')) || []).filter(t => t.firestoreId && !t.firestoreId.startsWith('local_'));
-    donationsList = (JSON.parse(localStorage.getItem('local_donations')) || []).filter(d => d.firestoreId && !d.firestoreId.startsWith('local_')); 
-    archiveBills = (JSON.parse(localStorage.getItem('local_bills')) || []).filter(b => b.firestoreId && !b.firestoreId.startsWith('local_'));
-    archiveFinance = (JSON.parse(localStorage.getItem('local_fin')) || []).filter(f => f.firestoreId && !f.firestoreId.startsWith('local_'));
-    complaintsList = (JSON.parse(localStorage.getItem('local_complaints')) || []).filter(c => c.firestoreId && !c.firestoreId.startsWith('local_'));
-    capitalLedger = (JSON.parse(localStorage.getItem('local_capital')) || []).filter(item => item.firestoreId && !item.firestoreId.startsWith('local_') && Number(item.amount) > 0);
-    pdfReportsList = (JSON.parse(localStorage.getItem('local_pdf_reports')) || []).filter(r => r.firestoreId && !r.firestoreId.startsWith('local_'));
-    saveLocalData();
+    subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
+    transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
+    donationsList = JSON.parse(localStorage.getItem('local_donations')) || []; 
+    archiveBills = JSON.parse(localStorage.getItem('local_bills')) || [];
+    archiveFinance = JSON.parse(localStorage.getItem('local_fin')) || [];
+    complaintsList = JSON.parse(localStorage.getItem('local_complaints')) || [];
+    capitalLedger = JSON.parse(localStorage.getItem('local_capital')) || [];
+    pdfReportsList = JSON.parse(localStorage.getItem('local_pdf_reports')) || [];
     recalculateFinancials();
 }
 
@@ -323,27 +322,28 @@ function saveSettings() {
 
 async function loadDataFromCloud() {
     try {
+        // ✅ التعديل الجذري مطبق هنا بفرض الـ ID الحقيقي دائماً ليمحو أي معرف وهمي قديم
         const subSnapshot = await getDocs(collection(db, "subscribers"));
-        subscribers = []; subSnapshot.forEach(d => { subscribers.push({ firestoreId: d.id, ...d.data() }); });
+        subscribers = []; subSnapshot.forEach(d => { subscribers.push({ ...d.data(), firestoreId: d.id }); });
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
 
         const compSnap = await getDocs(collection(db, "complaints"));
-        complaintsList = []; compSnap.forEach(d => { complaintsList.push({ firestoreId: d.id, ...d.data() }); });
+        complaintsList = []; compSnap.forEach(d => { complaintsList.push({ ...d.data(), firestoreId: d.id }); });
 
         const donSnap = await getDocs(collection(db, "donations"));
-        donationsList = []; donSnap.forEach(d => { if(d.id && !d.id.startsWith('local_')) donationsList.push({ firestoreId: d.id, ...d.data() }); });
+        donationsList = []; donSnap.forEach(d => { donationsList.push({ ...d.data(), firestoreId: d.id }); });
 
         const transSnapshot = await getDocs(collection(db, "transactions"));
-        transactionsList = []; transSnapshot.forEach(d => { if(d.id && !d.id.startsWith('local_')) transactionsList.push({ firestoreId: d.id, ...d.data() }); });
+        transactionsList = []; transSnapshot.forEach(d => { transactionsList.push({ ...d.data(), firestoreId: d.id }); });
 
         const billsSnap = await getDocs(collection(db, "archive_bills"));
-        archiveBills = []; billsSnap.forEach(d => { if(d.id && !d.id.startsWith('local_')) archiveBills.push({ firestoreId: d.id, ...d.data() }); });
+        archiveBills = []; billsSnap.forEach(d => { archiveBills.push({ ...d.data(), firestoreId: d.id }); });
 
         const finSnap = await getDocs(collection(db, "archive_finance"));
-        archiveFinance = []; finSnap.forEach(d => { if(d.id && !d.id.startsWith('local_')) archiveFinance.push({ firestoreId: d.id, ...d.data() }); });
+        archiveFinance = []; finSnap.forEach(d => { archiveFinance.push({ ...d.data(), firestoreId: d.id }); });
         
         const capSnap = await getDocs(collection(db, "capital_ledger"));
-        capitalLedger = []; capSnap.forEach(d => { let item = d.data(); if(d.id && !d.id.startsWith('local_') && Number(item.amount) > 0) capitalLedger.push({ firestoreId: d.id, ...item }); });
+        capitalLedger = []; capSnap.forEach(d => { let item = d.data(); if(Number(item.amount) > 0) capitalLedger.push({ ...item, firestoreId: d.id }); });
         
         const bylawSnap = await getDocs(collection(db, "bylaws"));
         if(!bylawSnap.empty) {
@@ -354,7 +354,7 @@ async function loadDataFromCloud() {
         }
 
         const reportsSnap = await getDocs(collection(db, "pdf_reports"));
-        pdfReportsList = []; reportsSnap.forEach(d => { if(d.id && !d.id.startsWith('local_')) pdfReportsList.push({ firestoreId: d.id, ...d.data() }); });
+        pdfReportsList = []; reportsSnap.forEach(d => { pdfReportsList.push({ ...d.data(), firestoreId: d.id }); });
 
         saveLocalData(); recalculateFinancials();
         
@@ -365,7 +365,9 @@ async function loadDataFromCloud() {
                 renderSubscribers(); updateFinancialDashboard(); renderTransactions(); renderDonations(); renderDebts(); renderAdminComplaints(); processAutoMonthlyCapital(); renderCapital(); renderPDFReportsList();
             }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Cloud fetch error:", e);
+    }
 }
 
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
@@ -417,7 +419,7 @@ async function saveSubscriber() {
             showToast('تم حفظ المشترك بنجاح');
         }
         saveLocalData(); renderSubscribers();
-    } catch (e) { showToast('❌ حدث خطأ أثناء الحفظ'); }
+    } catch (e) { console.error(e); showToast('❌ حدث خطأ أثناء الحفظ'); }
 }
 
 function editSubscriber(firestoreId) {
@@ -464,12 +466,14 @@ async function generateAndSendPIN(firestoreId) {
 }
 
 async function deleteSubscriber(id) { 
-    if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
+    if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن أو فيه خلل، قم بتحديث الصفحة'); return; }
     if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { 
-        subscribers = subscribers.filter(s => s.firestoreId !== id); 
-        saveLocalData(); 
-        if(navigator.onLine) { try { await deleteDoc(doc(db, "subscribers", id)); } catch(e){} }
-        renderSubscribers(); showToast('تم الحذف بنجاح'); 
+        try { 
+            await deleteDoc(doc(db, "subscribers", id)); 
+            subscribers = subscribers.filter(s => s.firestoreId !== id); 
+            saveLocalData(); 
+            renderSubscribers(); showToast('تم الحذف بنجاح'); 
+        } catch(e){ console.error(e); showToast('❌ فشل الحذف'); }
     } 
 }
 
@@ -495,7 +499,7 @@ async function submitComplaint() {
         let docRef = await addDoc(collection(db, "complaints"), comp);
         comp.firestoreId = docRef.id;
         complaintsList.push(comp); saveLocalData(); document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
-    } catch (e) { showToast('❌ خطأ في الإرسال'); }
+    } catch (e) { console.error(e); showToast('❌ خطأ في الإرسال'); }
 }
 
 function renderAdminComplaints() {
@@ -511,9 +515,11 @@ async function markComplaintRead(id) { let comp = complaintsList.find(c => c.fir
 async function deleteComplaint(id) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { 
-        complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine) { try{ await deleteDoc(doc(db, "complaints", id)); }catch(e){} }
-        renderAdminComplaints(); 
+        try{ 
+            await deleteDoc(doc(db, "complaints", id)); 
+            complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); 
+            renderAdminComplaints(); 
+        }catch(e){ console.error(e); }
     } 
 }
 
@@ -554,7 +560,7 @@ async function addManualCapital() {
         let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
         ledgerEntry.firestoreId = docRef.id;
         capitalLedger.push(ledgerEntry); saveLocalData(); renderCapital(); showToast("تم إضافة المبلغ للصندوق بنجاح");
-    } catch(e) { showToast("❌ حدث خطأ في الحفظ"); }
+    } catch(e) { console.error(e); showToast("❌ حدث خطأ في الحفظ"); }
 }
 
 function renderCapital() {
@@ -570,9 +576,11 @@ function renderCapital() {
 async function deleteCapitalEntry(id) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('هل تريد حذف هذه العملية من الصندوق نهائياً؟')) { 
-        capitalLedger = capitalLedger.filter(c => c.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine) { try{ await deleteDoc(doc(db, "capital_ledger", id)); }catch(e){} }
-        renderCapital(); showToast('تم الحذف بنجاح!'); 
+        try{ 
+            await deleteDoc(doc(db, "capital_ledger", id)); 
+            capitalLedger = capitalLedger.filter(c => c.firestoreId !== id); saveLocalData(); 
+            renderCapital(); showToast('تم الحذف بنجاح!'); 
+        }catch(e){ console.error(e); }
     } 
 }
 
@@ -595,7 +603,10 @@ async function saveDonation() {
         
         document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; 
         showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
-    } catch (e) { showToast('❌ حدث خطأ في الحفظ السحابي'); }
+    } catch (e) { 
+        console.error("Firebase error details:", e);
+        showToast('❌ حدث خطأ في الحفظ السحابي، تفقد الكونسول لمزيد من التفاصيل'); 
+    }
 }
 
 function renderDonations() { 
@@ -622,7 +633,7 @@ async function deleteDonation(id) {
             recalculateFinancials(); saveLocalData(); 
             renderDonations(); updateFinancialDashboard();
             showToast('تم الحذف بنجاح');
-        } catch(e) { showToast('❌ فشل الحذف من السحابة'); }
+        } catch(e) { console.error(e); showToast('❌ فشل الحذف من السحابة'); }
     } 
 }
 
@@ -649,7 +660,8 @@ async function scanToPDFAndUpload(file) {
                 let pdfBase64 = pdf.output('datauristring');
                 try {
                     const fileName = 'receipts/scan_' + Date.now() + '.pdf'; const storageRef = ref(storage, fileName);
-                    await uploadBytes(storageRef, await (await fetch(pdfBase64)).blob());
+                    let blob = await (await fetch(pdfBase64)).blob();
+                    await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
                     let downloadUrl = await getDownloadURL(storageRef); resolve(downloadUrl);
                 } catch(err) { reject(err); }
             }; img.src = e.target.result;
@@ -682,7 +694,7 @@ async function saveTransaction() {
         
         document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; if(fileInput) fileInput.value = '';
         showToast('تم تسجيل العملية المالية بنجاح'); renderTransactions(); updateFinancialDashboard(); 
-    } catch(e) { showToast('❌ حدث خطأ في الحفظ'); }
+    } catch(e) { console.error(e); showToast('❌ حدث خطأ في الحفظ'); }
 }
 
 function renderTransactions() { 
@@ -710,7 +722,7 @@ async function deleteTransaction(firestoreId, fileUrl) {
             recalculateFinancials(); saveLocalData(); 
             renderTransactions(); updateFinancialDashboard(); renderArchive(); renderCapital(); 
             showToast('تم حذف العملية بنجاح!');
-        } catch(e) { showToast('❌ فشل الحذف'); }
+        } catch(e) { console.error(e); showToast('❌ فشل الحذف'); }
     } 
 }
 
@@ -722,7 +734,7 @@ async function saveBylaws() {
             const bylawSnap = await getDocs(collection(db, "bylaws"));
             if(bylawSnap.empty) { await addDoc(collection(db, "bylaws"), { text: text }); } else { let id = bylawSnap.docs[0].id; await updateDoc(doc(db, "bylaws", id), { text: text }); }
             localStorage.setItem('tamda_bylaws', text); showToast('✅ تم حفظ القانون الأساسي بنجاح للجميع');
-        } catch(e) { showToast('❌ خطأ في الحفظ السحابي'); }
+        } catch(e) { console.error(e); showToast('❌ خطأ في الحفظ السحابي'); }
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
@@ -739,14 +751,15 @@ async function uploadFinancialPDF() {
 
     if(uploadBtn) {
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '⏳ جاري الرفع للسحابة...';
+        uploadBtn.textContent = '⏳ جاري الرفع للسحابة... المرجو الانتظار';
     }
 
     try {
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
         
-        await uploadBytes(storageRef, file);
+        const arrayBuffer = await file.arrayBuffer();
+        await uploadBytes(storageRef, arrayBuffer, { contentType: file.type || 'application/pdf' });
         let downloadURL = await getDownloadURL(storageRef);
         
         let reportObj = { 
@@ -762,12 +775,12 @@ async function uploadFinancialPDF() {
         pdfReportsList.unshift(reportObj);
         saveLocalData();
         
-        fileInput.value = ''; titleInput.value = '';
+        fileInput.value = ''; if(titleInput) titleInput.value = '';
         showToast('✅ تم الرفع بنجاح');
         renderPDFReportsList();
     } catch(err) {
-        console.error(err);
-        showToast('❌ فشل الرفع: تأكد من تفعيل Storage في Firebase');
+        console.error("Upload error details:", err);
+        showToast('❌ فشل الرفع: تأكد من تفعيل قواعد Storage في Firebase');
     } finally {
         if(uploadBtn) {
             uploadBtn.disabled = false;
@@ -792,7 +805,7 @@ async function deletePDFReport(id, fileUrl) {
             const fileRef = ref(storage, fileUrl); await deleteObject(fileRef);
             pdfReportsList = pdfReportsList.filter(r => r.firestoreId !== id); saveLocalData(); renderPDFReportsList();
             showToast('تم الحذف بنجاح'); 
-        } catch(e) { showToast('❌ فشل الحذف'); }
+        } catch(e) { console.error(e); showToast('❌ فشل الحذف'); }
     } 
 }
 
@@ -935,7 +948,7 @@ async function saveBill(isPaid) {
             
             saveLocalData(); 
             showToast('تم حفظ الفاتورة بنجاح'); currentBillTotal = 0; document.getElementById('billResult').style.display = 'none'; document.getElementById('currReading').value = ''; document.getElementById('exemptionCheck').checked = false; document.getElementById('smartAlertBox').style.display = 'none'; let nextCounter = parseInt(counterInput); if (!isNaN(nextCounter)) document.getElementById('counterNum').value = nextCounter + 1; autoFillSubscriber(); 
-        } catch (e) { showToast('❌ فشل الحفظ'); } 
+        } catch (e) { console.error(e); showToast('❌ فشل الحفظ'); } 
     } else { showToast('يرجى حساب الفاتورة أولاً'); } 
 }
 
@@ -960,7 +973,7 @@ async function collectDebt(firestoreId, amount, counter, name) {
             transactionsList.push(newTrans); 
             recalculateFinancials(); saveLocalData(); 
             showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
-        } catch(e) { showToast('❌ فشل الاستخلاص'); }
+        } catch(e) { console.error(e); showToast('❌ فشل الاستخلاص'); }
     } 
 }
 
@@ -982,25 +995,28 @@ function renderArchive() {
         html += `</div>`; box.innerHTML = html; container.appendChild(box); 
     }); 
 }
+
 async function deleteArchiveBill(id) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('متأكد من الحذف؟')) { 
-        archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine) { try{ await deleteDoc(doc(db, "archive_bills", id)); }catch(e){} }
-        renderArchive(); 
+        try{ 
+            await deleteDoc(doc(db, "archive_bills", id)); 
+            archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); 
+            renderArchive(); 
+        }catch(e){ console.error(e); }
     } 
 }
+
 async function deleteArchiveFinance(id, fileUrl) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('متأكد من الحذف؟')) { 
-        archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine) { 
-            try{
-                await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); 
-                if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } 
-            } catch(e){}
-        } 
-        renderArchive(); 
+        try{
+            await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); 
+            if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } 
+            
+            archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); 
+            renderArchive(); 
+        } catch(e){ console.error(e); }
     } 
 }
 
