@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-// ✅ تمت إضافة uploadBytesResumable هنا
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -324,7 +323,6 @@ function saveSettings() {
 
 async function loadDataFromCloud() {
     try {
-        // ✅ الترتيب الصحيح المعتمد: البيانات أولاً ثم فرض المعرف الحقيقي لتجنب الطمس الوهمي
         const subSnapshot = await getDocs(collection(db, "subscribers"));
         subscribers = []; subSnapshot.forEach(d => { subscribers.push({ ...d.data(), firestoreId: d.id }); });
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
@@ -663,7 +661,6 @@ async function scanToPDFAndUpload(file) {
                 try {
                     const fileName = 'receipts/scan_' + Date.now() + '.pdf'; const storageRef = ref(storage, fileName);
                     let blob = await (await fetch(pdfBase64)).blob();
-                    // هنا استخدام uploadBytes العادية كافي لأنها ملفات صغيرة جداً ومسح ضوئي خفيف
                     await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
                     let downloadUrl = await getDownloadURL(storageRef); resolve(downloadUrl);
                 } catch(err) { reject(err); }
@@ -741,7 +738,6 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
-// ✅ تم الاستبدال الجذري باستخدام uploadBytesResumable لظهور نسبة التقدم
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -762,7 +758,6 @@ async function uploadFinancialPDF() {
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
         
-        // استخدام الدالة الجديدة التي تدعم متابعة التقدم (شريط 0% - 100%)
         const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type || 'application/pdf' });
 
         uploadTask.on('state_changed', 
@@ -779,7 +774,6 @@ async function uploadFinancialPDF() {
                 }
             }, 
             async () => {
-                // تكتمل بنجاح
                 let downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                 
                 let reportObj = { 
