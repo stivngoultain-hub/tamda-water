@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { getStorage, ref, uploadString, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(checkSessionTimeout, 10000);
 });
 
-// ================== نظام الأمان والجلسات ==================
 function updateOnlineStatus(isOnline) {
     const statusEl = document.getElementById('connectionStatus');
     if (!statusEl) return;
@@ -252,7 +251,6 @@ function navigateTo(pageName) {
     }
 }
 
-// ================== البيانات والأرشيف المحلية والسحابية ==================
 function loadLocalData() {
     subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
     transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
@@ -636,7 +634,7 @@ async function deleteTransaction(firestoreId, fileUrl) {
     } 
 }
 
-// ================== القانون الأساسي و التقارير (الكود المعالج للـ WebView) ==================
+// ================== القانون الأساسي و التقارير (الرفع المباشر والسريع) ==================
 async function saveBylaws() { 
     let text = document.getElementById('bylawInput').value; document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.'; 
     showToast('⏳ جاري الحفظ في السحابة...');
@@ -660,7 +658,6 @@ async function uploadFinancialPDF() {
     let file = fileInput.files[0]; 
     let title = titleInput.value.trim() || file.name; 
 
-    // إيقاف الزر لتجنب الضغط المتكرر
     if(uploadBtn) {
         uploadBtn.disabled = true;
         uploadBtn.textContent = '⏳ جاري الرفع... المرجو الانتظار';
@@ -669,51 +666,41 @@ async function uploadFinancialPDF() {
 
     showToast('⏳ بدأ رفع الوثيقة للسحابة...');
     
-    // استخدام FileReader كونه أكثر توافقية واستقراراً في بيئة (WebView / Acode)
-    let reader = new FileReader(); 
-    reader.onload = async function(e) {
-        try {
-            let base64 = e.target.result;
-            const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-            const fileName = 'reports/doc_' + Date.now() + '_' + safeName;
-            const storageRef = ref(storage, fileName);
-            
-            // استخدام uploadString بدلاً من uploadBytes لتفادي مشاكل الأندرويد
-            await uploadString(storageRef, base64, 'data_url');
-            let downloadUrl = await getDownloadURL(storageRef);
-            
-            let reportObj = { 
-                title: title, 
-                fileUrl: downloadUrl, 
-                date: new Date().toLocaleDateString('ar-MA'), 
-                timestamp: new Date().toISOString() 
-            };
-            
-            let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-            reportObj.firestoreId = docRef.id;
-            
-            pdfReportsList.unshift(reportObj); 
-            saveLocalData(); 
-            
-            fileInput.value = ''; titleInput.value = ''; 
-            showToast('✅ تم رفع الوثيقة بنجاح ومشاركتها مع المكتب'); 
-            renderPDFReportsList(); 
-        } catch(err) {
-            console.error(err);
-            showToast('❌ حدث خطأ، فشل الرفع!');
-        } finally {
-            if(uploadBtn) {
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-                uploadBtn.style.opacity = '1';
-            }
+    try {
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = 'reports/doc_' + Date.now() + '_' + safeName;
+        const storageRef = ref(storage, fileName);
+        
+        // استخدام uploadBytes للرفع المباشر كحل نهائي لمشكلة التعليق
+        await uploadBytes(storageRef, file);
+        let downloadUrl = await getDownloadURL(storageRef);
+        
+        let reportObj = { 
+            title: title, 
+            fileUrl: downloadUrl, 
+            date: new Date().toLocaleDateString('ar-MA'), 
+            timestamp: new Date().toISOString() 
+        };
+        
+        let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+        reportObj.firestoreId = docRef.id;
+        
+        pdfReportsList.unshift(reportObj); 
+        saveLocalData(); 
+        
+        fileInput.value = ''; titleInput.value = ''; 
+        showToast('✅ تم رفع الوثيقة بنجاح ومشاركتها مع المكتب'); 
+        renderPDFReportsList(); 
+    } catch(err) {
+        console.error("Upload Error: ", err);
+        showToast('❌ حدث خطأ، فشل الرفع!');
+    } finally {
+        if(uploadBtn) {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+            uploadBtn.style.opacity = '1';
         }
-    };
-    reader.onerror = function() {
-        showToast('❌ خطأ في قراءة الملف من الهاتف');
-        if(uploadBtn) { uploadBtn.disabled = false; uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف'; uploadBtn.style.opacity = '1'; }
-    };
-    reader.readAsDataURL(file); 
+    }
 }
 
 function renderPDFReportsList() { 
@@ -763,7 +750,6 @@ function autoFillSubscriber() {
         document.getElementById('delayMonths').value = 0; 
     } 
     
-    // استدعاء دالة اختيار النظام بشكل تلقائي
     window.autoAdjustTariff();
     calculateBill(); 
 }
@@ -797,7 +783,7 @@ function calculateBill() {
     
     let sub = subscribers.find(s => s.counter == counterNumInput); 
     
-    // 💡 التنبيهات الذكية تظهر فقط للمنخرطين الذين لديهم فواتير سابقة (تجاهل شهر 5 الأول)
+    // إخفاء التنبيهات في حال كان هذا هو الشهر الأول (لا توجد فاتورة سابقة)
     if (sub && sub.lastBilledMonth && sub.lastBilledMonth !== '') {
         let prevCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum - 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth) && s.lastBilledMonth !== ''); 
         let nextCounterExists = subscribers.some(s => Number(s.counter) === currentCounterNum + 1 && (!s.lastBilledMonth || s.lastBilledMonth !== billingMonth) && s.lastBilledMonth !== ''); 
@@ -816,7 +802,6 @@ function calculateBill() {
     currentT1 = 0; currentT2 = 0; currentT3 = 0; 
     let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; 
     
-    // 💡 الحساب بناءً على اختيار النظام (القديم أو الجديد)
     if (tariffSystem === 'old') { 
         maintenance = appSettings.maintenance; 
         if (consumption <= 15) { currentT1 = consumption; } 
@@ -824,7 +809,6 @@ function calculateBill() {
         else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } 
         t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; 
     } else { 
-        // النظام الجديد المقترح
         maintenance = 15; 
         if (consumption <= 20) { currentT1 = consumption; } 
         else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } 
