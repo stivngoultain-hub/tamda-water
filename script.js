@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+// ✅ تمت إضافة uploadBytesResumable هنا
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -263,14 +264,15 @@ function navigateTo(pageName) {
 }
 
 function loadLocalData() {
-    subscribers = JSON.parse(localStorage.getItem('local_subs')) || [];
-    transactionsList = JSON.parse(localStorage.getItem('local_trans')) || [];
-    donationsList = JSON.parse(localStorage.getItem('local_donations')) || []; 
-    archiveBills = JSON.parse(localStorage.getItem('local_bills')) || [];
-    archiveFinance = JSON.parse(localStorage.getItem('local_fin')) || [];
-    complaintsList = JSON.parse(localStorage.getItem('local_complaints')) || [];
-    capitalLedger = JSON.parse(localStorage.getItem('local_capital')) || [];
-    pdfReportsList = JSON.parse(localStorage.getItem('local_pdf_reports')) || [];
+    subscribers = (JSON.parse(localStorage.getItem('local_subs')) || []).filter(s => s.firestoreId && !s.firestoreId.startsWith('local_'));
+    transactionsList = (JSON.parse(localStorage.getItem('local_trans')) || []).filter(t => t.firestoreId && !t.firestoreId.startsWith('local_'));
+    donationsList = (JSON.parse(localStorage.getItem('local_donations')) || []).filter(d => d.firestoreId && !d.firestoreId.startsWith('local_')); 
+    archiveBills = (JSON.parse(localStorage.getItem('local_bills')) || []).filter(b => b.firestoreId && !b.firestoreId.startsWith('local_'));
+    archiveFinance = (JSON.parse(localStorage.getItem('local_fin')) || []).filter(f => f.firestoreId && !f.firestoreId.startsWith('local_'));
+    complaintsList = (JSON.parse(localStorage.getItem('local_complaints')) || []).filter(c => c.firestoreId && !c.firestoreId.startsWith('local_'));
+    capitalLedger = (JSON.parse(localStorage.getItem('local_capital')) || []).filter(item => item.firestoreId && !item.firestoreId.startsWith('local_') && Number(item.amount) > 0);
+    pdfReportsList = (JSON.parse(localStorage.getItem('local_pdf_reports')) || []).filter(r => r.firestoreId && !r.firestoreId.startsWith('local_'));
+    saveLocalData();
     recalculateFinancials();
 }
 
@@ -322,7 +324,7 @@ function saveSettings() {
 
 async function loadDataFromCloud() {
     try {
-        // ✅ التعديل الجذري مطبق هنا بفرض الـ ID الحقيقي دائماً ليمحو أي معرف وهمي قديم
+        // ✅ الترتيب الصحيح المعتمد: البيانات أولاً ثم فرض المعرف الحقيقي لتجنب الطمس الوهمي
         const subSnapshot = await getDocs(collection(db, "subscribers"));
         subscribers = []; subSnapshot.forEach(d => { subscribers.push({ ...d.data(), firestoreId: d.id }); });
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
@@ -661,6 +663,7 @@ async function scanToPDFAndUpload(file) {
                 try {
                     const fileName = 'receipts/scan_' + Date.now() + '.pdf'; const storageRef = ref(storage, fileName);
                     let blob = await (await fetch(pdfBase64)).blob();
+                    // هنا استخدام uploadBytes العادية كافي لأنها ملفات صغيرة جداً ومسح ضوئي خفيف
                     await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
                     let downloadUrl = await getDownloadURL(storageRef); resolve(downloadUrl);
                 } catch(err) { reject(err); }
@@ -738,6 +741,7 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
+// ✅ تم الاستبدال الجذري باستخدام uploadBytesResumable لظهور نسبة التقدم
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -751,37 +755,60 @@ async function uploadFinancialPDF() {
 
     if(uploadBtn) {
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '⏳ جاري الرفع للسحابة... المرجو الانتظار';
+        uploadBtn.textContent = '⏳ جاري بدء الرفع... 0%';
     }
 
     try {
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
         
-        const arrayBuffer = await file.arrayBuffer();
-        await uploadBytes(storageRef, arrayBuffer, { contentType: file.type || 'application/pdf' });
-        let downloadURL = await getDownloadURL(storageRef);
+        // استخدام الدالة الجديدة التي تدعم متابعة التقدم (شريط 0% - 100%)
+        const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type || 'application/pdf' });
+
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                if(uploadBtn) uploadBtn.textContent = `⏳ جاري الرفع... ${Math.round(progress)}%`;
+            }, 
+            (error) => {
+                console.error("Upload error details:", error);
+                showToast('❌ فشل الرفع: تأكد من تفعيل قواعد Storage في Firebase');
+                if(uploadBtn) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+                }
+            }, 
+            async () => {
+                // تكتمل بنجاح
+                let downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                
+                let reportObj = { 
+                    title: title, 
+                    fileUrl: downloadURL, 
+                    date: new Date().toLocaleDateString('ar-MA'), 
+                    timestamp: new Date().toISOString() 
+                };
+                
+                let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+                reportObj.firestoreId = docRef.id;
+                
+                pdfReportsList.unshift(reportObj);
+                saveLocalData();
+                
+                fileInput.value = ''; if(titleInput) titleInput.value = '';
+                showToast('✅ تم الرفع بنجاح');
+                renderPDFReportsList();
+                
+                if(uploadBtn) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+                }
+            }
+        );
         
-        let reportObj = { 
-            title: title, 
-            fileUrl: downloadURL, 
-            date: new Date().toLocaleDateString('ar-MA'), 
-            timestamp: new Date().toISOString() 
-        };
-        
-        let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-        reportObj.firestoreId = docRef.id;
-        
-        pdfReportsList.unshift(reportObj);
-        saveLocalData();
-        
-        fileInput.value = ''; if(titleInput) titleInput.value = '';
-        showToast('✅ تم الرفع بنجاح');
-        renderPDFReportsList();
     } catch(err) {
-        console.error("Upload error details:", err);
-        showToast('❌ فشل الرفع: تأكد من تفعيل قواعد Storage في Firebase');
-    } finally {
+        console.error("Initiation Upload error:", err);
+        showToast('❌ حدث خطأ غير متوقع أثناء بدء الرفع.');
         if(uploadBtn) {
             uploadBtn.disabled = false;
             uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
