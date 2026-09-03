@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -64,18 +64,15 @@ function loadJsPDF() {
     });
 }
 
-// ================== حل مشكلة زر الرجوع (الضغطتين) ==================
+// التحكم في زر الرجوع (الضغطتين)
 let backPressTimer = null;
-// إجبار المتصفح على إنشاء سجل وهمي لمنع الخروج المباشر
 history.pushState(null, null, location.href);
 
 window.addEventListener('popstate', (e) => {
     if (backPressTimer) {
-        // الضغطة الثانية خلال ثانيتين: خروج طبيعي
         clearTimeout(backPressTimer);
         window.history.back();
     } else {
-        // الضغطة الأولى: منع الخروج، إظهار تنبيه وإعادة السجل الوهمي
         e.preventDefault();
         history.pushState(null, null, location.href); 
         showToast('⚠️ اضغط مرة أخرى للخروج من التطبيق');
@@ -92,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(document.getElementById('bylawInput')) document.getElementById('bylawInput').value = savedBylaw;
     if(document.getElementById('bylawDisplay')) document.getElementById('bylawDisplay').textContent = savedBylaw || 'لا يوجد قانون أساسي مسجل حالياً.';
     
-    window.addEventListener('online', () => { updateOnlineStatus(true); syncOfflineQueue(); });
+    window.addEventListener('online', () => { updateOnlineStatus(true); });
     window.addEventListener('offline', () => { updateOnlineStatus(false); });
     updateOnlineStatus(navigator.onLine);
     
@@ -373,30 +370,6 @@ async function loadDataFromCloud() {
     } catch (e) {}
 }
 
-async function queueOfflineAction(actionType, data) {
-    let queue = JSON.parse(localStorage.getItem('offline_queue')) || [];
-    queue.push({ actionType, data, timestamp: new Date().toISOString() });
-    localStorage.setItem('offline_queue', JSON.stringify(queue));
-}
-
-async function syncOfflineQueue() {
-    let queue = JSON.parse(localStorage.getItem('offline_queue')) || [];
-    if (queue.length === 0) return;
-    try {
-        for (let item of queue) {
-            if (item.actionType === 'add_subscriber') await addDoc(collection(db, "subscribers"), item.data);
-            else if (item.actionType === 'add_transaction') await addDoc(collection(db, "transactions"), item.data);
-            else if (item.actionType === 'add_donation') await addDoc(collection(db, "donations"), item.data);
-            else if (item.actionType === 'add_bill') await addDoc(collection(db, "archive_bills"), item.data);
-            else if (item.actionType === 'add_complaint') await addDoc(collection(db, "complaints"), item.data);
-            else if (item.actionType === 'add_capital') await addDoc(collection(db, "capital_ledger"), item.data);
-        }
-        localStorage.removeItem('offline_queue');
-        showToast('تمت مزامنة البيانات المعلقة بنجاح!');
-        loadDataFromCloud();
-    } catch (e) {}
-}
-
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
 function renderMemberActivityStats() {
@@ -427,7 +400,7 @@ async function saveSubscriber() {
         if (editingId) {
             let sub = subscribers.find(s => s.firestoreId === editingId);
             if(sub) { sub.counter = counter; sub.name = name; sub.phone = phone; sub.location = loc; }
-            if (navigator.onLine && !editingId.startsWith('local_')) {
+            if (navigator.onLine) {
                 await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location: loc });
             }
             showToast('تم تعديل بيانات المشترك بنجاح!');
@@ -437,13 +410,10 @@ async function saveSubscriber() {
             
             let newSub = { counter: counter, name: name, phone: phone, location: loc, lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: '', avgConsumption: 15, pin: '' };
             
-            if (navigator.onLine) {
-                let docRef = await addDoc(collection(db, "subscribers"), newSub);
-                newSub.firestoreId = docRef.id;
-            } else {
-                newSub.firestoreId = 'local_' + Date.now();
-                queueOfflineAction('add_subscriber', newSub);
-            }
+            if (!navigator.onLine) return showToast('⚠️ يجب الاتصال بالإنترنت لإضافة مشترك جديد');
+            
+            let docRef = await addDoc(collection(db, "subscribers"), newSub);
+            newSub.firestoreId = docRef.id;
             
             subscribers.push(newSub);
             subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
@@ -493,7 +463,7 @@ async function generateAndSendPIN(firestoreId) {
     let sub = subscribers.find(s => s.firestoreId === firestoreId); if (!sub) return;
     if (!sub.phone) return showToast('رقم هاتف المنخرط غير مسجل!');
     let pin = Math.floor(1000 + Math.random() * 9000).toString(); sub.pin = pin; saveLocalData();
-    if(navigator.onLine && !firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { pin: pin }).catch(()=>{});
+    if(navigator.onLine) await updateDoc(doc(db, "subscribers", firestoreId), { pin: pin }).catch(()=>{});
     let msg = `مرحباً السيد(ة) ${sub.name}،\nتم تفعيل حسابك في بوابة المشتركين لتطبيق تسيير ماء تامدة.\n\n👤 اسم المستخدم (رقم العداد): ${sub.counter}\n🔑 الرمز السري: ${pin}`;
     window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank'); showToast('تم توليد الكود وفتح واتساب'); renderSubscribers();
 }
@@ -502,8 +472,8 @@ async function deleteSubscriber(id) {
     if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { 
         subscribers = subscribers.filter(s => s.firestoreId !== id); 
         saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) {
-            try { await deleteDoc(doc(db, "subscribers", id)); console.log("Deleted"); } catch(e){ console.error(e); }
+        if(navigator.onLine) {
+            try { await deleteDoc(doc(db, "subscribers", id)); } catch(e){ console.error(e); }
         }
         renderSubscribers(); showToast('تم الحذف بنجاح'); 
     } 
@@ -528,13 +498,10 @@ async function submitComplaint() {
     let comp = { counter: subCounter, name: subName, text: text, date: new Date().toLocaleDateString('ar-MA'), status: 'جديدة' };
     
     try {
-        if(navigator.onLine) {
-            let docRef = await addDoc(collection(db, "complaints"), comp);
-            comp.firestoreId = docRef.id;
-        } else {
-            comp.firestoreId = 'local_' + Date.now();
-            queueOfflineAction('add_complaint', comp);
-        }
+        if(!navigator.onLine) return showToast('⚠️ يجب الاتصال بالإنترنت لإرسال الشكاية');
+        let docRef = await addDoc(collection(db, "complaints"), comp);
+        comp.firestoreId = docRef.id;
+        
         complaintsList.push(comp); saveLocalData(); document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
     } catch (e) { showToast('❌ خطأ في الإرسال'); }
 }
@@ -548,11 +515,11 @@ function renderAdminComplaints() {
         container.appendChild(div);
     });
 }
-async function markComplaintRead(id) { let comp = complaintsList.find(c => c.firestoreId === id); if(comp) { comp.status = 'تمت المعالجة'; saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await updateDoc(doc(db, "complaints", id), { status: 'تمت المعالجة' }); renderAdminComplaints(); } }
+async function markComplaintRead(id) { let comp = complaintsList.find(c => c.firestoreId === id); if(comp) { comp.status = 'تمت المعالجة'; saveLocalData(); if(navigator.onLine) await updateDoc(doc(db, "complaints", id), { status: 'تمت المعالجة' }); renderAdminComplaints(); } }
 async function deleteComplaint(id) { 
     if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { 
         complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) {
+        if(navigator.onLine) {
             try{ await deleteDoc(doc(db, "complaints", id)); }catch(e){}
         }
         renderAdminComplaints(); 
@@ -576,11 +543,8 @@ function processAutoMonthlyCapital() {
                     if(navigator.onLine) {
                         let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
                         ledgerEntry.firestoreId = docRef.id;
-                    } else {
-                        ledgerEntry.firestoreId = 'local_cap_' + Date.now();
-                        queueOfflineAction('add_capital', ledgerEntry);
+                        capitalLedger.push(ledgerEntry); saveLocalData();
                     }
-                    capitalLedger.push(ledgerEntry); saveLocalData();
                 } catch(e) {}
             }
         }
@@ -595,13 +559,9 @@ async function addManualCapital() {
     let ledgerEntry = { date: new Date().toLocaleDateString('ar-MA'), targetMonth: new Date().toISOString().slice(0, 7), type: 'manual', amount: amount, desc: desc, timestamp: new Date().toISOString() };
     
     try {
-        if(navigator.onLine) {
-            let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
-            ledgerEntry.firestoreId = docRef.id;
-        } else {
-            ledgerEntry.firestoreId = 'local_cap_' + Date.now();
-            queueOfflineAction('add_capital', ledgerEntry);
-        }
+        if(!navigator.onLine) return showToast('⚠️ يجب الاتصال بالإنترنت');
+        let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
+        ledgerEntry.firestoreId = docRef.id;
         capitalLedger.push(ledgerEntry); saveLocalData(); renderCapital(); showToast("تم إضافة المبلغ للصندوق بنجاح");
     } catch(e) { showToast("❌ حدث خطأ في الحفظ"); }
 }
@@ -619,34 +579,31 @@ function renderCapital() {
 async function deleteCapitalEntry(id) { 
     if(confirm('هل تريد حذف هذه العملية من الصندوق نهائياً؟')) { 
         capitalLedger = capitalLedger.filter(c => c.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) {
+        if(navigator.onLine) {
             try{ await deleteDoc(doc(db, "capital_ledger", id)); }catch(e){}
         }
         renderCapital(); showToast('تم الحذف بنجاح!'); 
     } 
 }
 
-// ================== سجل التبرعات ==================
-// حل مشكلة التبرعات (مزامنة الـ ID)
+// ================== سجل التبرعات (الحل الجذري للمعرفات) ==================
 async function saveDonation() { 
     const month = document.getElementById('donationMonth').value; 
     const name = document.getElementById('donationName').value.trim(); 
     const amount = parseFloat(document.getElementById('donationAmount').value) || 0; 
     if (amount <= 0 || !month || !name) return showToast('أدخل البيانات كاملة'); 
+    if (!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت لحفظ التبرع بشكل صحيح');
     
     let donObj = { month, name, amount, timestamp: new Date().toISOString() }; 
     
     try {
-        if (navigator.onLine) {
-            let docRef = await addDoc(collection(db, "donations"), donObj);
-            donObj.firestoreId = docRef.id; // أخذ المعرف الحقيقي فورا
-        } else {
-            donObj.firestoreId = 'local_' + Date.now();
-            queueOfflineAction('add_donation', donObj);
-        }
+        // الحفظ في السحابة أولاً للحصول على الـ ID الحقيقي المعترف به من فايربيز
+        let docRef = await addDoc(collection(db, "donations"), donObj);
+        donObj.firestoreId = docRef.id; 
         
         donationsList.push(donObj); 
         recalculateFinancials(); saveLocalData(); 
+        
         document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; 
         showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
     } catch (e) {
@@ -668,15 +625,20 @@ function renderDonations() {
 
 async function deleteDonation(id) { 
     if(confirm('هل تريد حذف هذا التبرع نهائياً؟')) { 
-        donationsList = donationsList.filter(d => d.firestoreId !== id); 
-        recalculateFinancials(); saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) {
-            try { 
-                await deleteDoc(doc(db, "donations", id)); 
-                console.log("Donation deleted from DB");
-            } catch(e) { console.error("Error deleting donation:", e); }
+        if(!id || id.startsWith('local_')) {
+            showToast('⚠️ لا يمكن حذف عنصر غير متزامن');
+            return;
         }
-        renderDonations(); updateFinancialDashboard(); 
+        try { 
+            await deleteDoc(doc(db, "donations", id)); 
+            donationsList = donationsList.filter(d => d.firestoreId !== id); 
+            recalculateFinancials(); saveLocalData(); 
+            renderDonations(); updateFinancialDashboard();
+            showToast('تم الحذف بنجاح');
+        } catch(e) { 
+            console.error("Error deleting donation:", e);
+            showToast('❌ فشل الحذف من السحابة');
+        }
     } 
 }
 
@@ -704,7 +666,8 @@ async function scanToPDFAndUpload(file) {
                 let pdfBase64 = pdf.output('datauristring');
                 try {
                     const fileName = 'receipts/scan_' + Date.now() + '.pdf'; const storageRef = ref(storage, fileName);
-                    await uploadString(storageRef, pdfBase64, 'data_url');
+                    // رفع باستخدام uploadBytes الآمنة
+                    await uploadBytes(storageRef, await (await fetch(pdfBase64)).blob());
                     let downloadUrl = await getDownloadURL(storageRef); resolve(downloadUrl);
                 } catch(err) { reject(err); }
             }; img.src = e.target.result;
@@ -712,16 +675,15 @@ async function scanToPDFAndUpload(file) {
     });
 }
 
-// حل مشكلة المعاملات المالية (مزامنة الـ ID)
 async function saveTransaction() { 
     const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; 
     const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); 
     const fileInput = document.getElementById('transFile'); 
     if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); 
-    let receiptUrl = '';
+    if (!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت لحفظ المعاملة المالية');
     
+    let receiptUrl = '';
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        if (!navigator.onLine) return showToast('⚠️ لا يمكن مسح ورفع الوثائق إلا عند الاتصال بالإنترنت.');
         showToast('⏳ جاري المسح الضوئي وتحويل الوثيقة لـ PDF...');
         try { await loadJsPDF(); receiptUrl = await scanToPDFAndUpload(fileInput.files[0]); } catch (e) { return showToast('❌ فشل تحويل أو رفع الوثيقة.'); }
     }
@@ -729,14 +691,10 @@ async function saveTransaction() {
     let transactionObj = { month, type, amount, desc, fileName: receiptUrl, timestamp: new Date().toISOString() }; 
     
     try {
-        if (navigator.onLine) { 
-            let docRef = await addDoc(collection(db, "transactions"), transactionObj); 
-            transactionObj.firestoreId = docRef.id; // المعرف الحقيقي
-            await addDoc(collection(db, "archive_finance"), transactionObj); 
-        } else {
-            transactionObj.firestoreId = 'local_' + Date.now();
-            queueOfflineAction('add_transaction', transactionObj);
-        }
+        let docRef = await addDoc(collection(db, "transactions"), transactionObj); 
+        transactionObj.firestoreId = docRef.id; 
+        
+        await addDoc(collection(db, "archive_finance"), transactionObj); 
         
         transactionsList.push(transactionObj); archiveFinance.push(transactionObj); 
         recalculateFinancials(); saveLocalData(); 
@@ -760,25 +718,26 @@ function renderTransactions() {
 
 async function deleteTransaction(firestoreId, fileUrl) { 
     if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
-        transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
-        archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
-        capitalLedger = capitalLedger.filter(c => c.firestoreId !== firestoreId);
-        
-        recalculateFinancials(); saveLocalData(); 
-        
-        if(navigator.onLine && !firestoreId.startsWith('local_')) {
-            try {
-                await deleteDoc(doc(db, "transactions", firestoreId)); 
-                await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(()=>{});
-                if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); }
-                console.log("Transaction deleted");
-            } catch(e) { console.error("Error deleting transaction", e); }
+        if(!firestoreId || firestoreId.startsWith('local_')) {
+            showToast('⚠️ عنصر غير متزامن'); return;
         }
-        renderTransactions(); updateFinancialDashboard(); renderArchive(); renderCapital(); showToast('تم حذف العملية بنجاح!');
+        try {
+            await deleteDoc(doc(db, "transactions", firestoreId)); 
+            await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(()=>{});
+            if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); }
+            
+            transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
+            archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
+            capitalLedger = capitalLedger.filter(c => c.firestoreId !== firestoreId);
+            
+            recalculateFinancials(); saveLocalData(); 
+            renderTransactions(); updateFinancialDashboard(); renderArchive(); renderCapital(); 
+            showToast('تم حذف العملية بنجاح!');
+        } catch(e) { console.error("Error deleting transaction", e); showToast('❌ فشل الحذف'); }
     } 
 }
 
-// ================== القانون الأساسي و التقارير (مع النسبة المئوية) ==================
+// ================== القانون الأساسي و التقارير (الحل القاطع لتعليق الرفع) ==================
 async function saveBylaws() { 
     let text = document.getElementById('bylawInput').value; document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.'; 
     showToast('⏳ جاري الحفظ في السحابة...');
@@ -791,7 +750,7 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
-// حل مشكلة تعليق PDF وإظهار النسبة
+// استبدال uploadBytesResumable بـ uploadBytes المباشرة لمنع أي تعليق أبدي في الهواتف
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -805,60 +764,42 @@ async function uploadFinancialPDF() {
 
     if(uploadBtn) {
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '⏳ جاري بدء الرفع... 0%';
+        uploadBtn.textContent = '⏳ جاري الرفع للسحابة، المرجو الانتظار...';
     }
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
-    
-    // مراقبة الرفع وعرض النسبة المئوية
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    uploadTask.on('state_changed', 
-        (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if(uploadBtn) uploadBtn.textContent = `⏳ جاري الرفع... ${Math.round(progress)}%`;
-        }, 
-        (error) => {
-            console.error("Upload error:", error);
-            showToast('❌ فشل الرفع، تأكد من صلاحيات Firebase Storage');
-            if(uploadBtn) {
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = '⬆️ إعادة المحاولة';
-            }
-        }, 
-        async () => {
-            try {
-                if(uploadBtn) uploadBtn.textContent = '⏳ جاري حفظ الرابط...';
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                
-                let reportObj = { 
-                    title: title, 
-                    fileUrl: downloadURL, 
-                    date: new Date().toLocaleDateString('ar-MA'), 
-                    timestamp: new Date().toISOString() 
-                };
-                
-                let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-                reportObj.firestoreId = docRef.id;
-                
-                pdfReportsList.unshift(reportObj);
-                saveLocalData();
-                
-                fileInput.value = ''; titleInput.value = '';
-                showToast('✅ تم الرفع بنجاح 100%');
-                renderPDFReportsList();
-            } catch (e) {
-                console.error(e);
-                showToast('❌ خطأ أثناء حفظ بيانات الملف في قاعدة البيانات');
-            } finally {
-                if(uploadBtn) {
-                    uploadBtn.disabled = false;
-                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-                }
-            }
+    try {
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
+        
+        // الرفع المباشر والسريع دون تعليق
+        await uploadBytes(storageRef, file);
+        let downloadURL = await getDownloadURL(storageRef);
+        
+        let reportObj = { 
+            title: title, 
+            fileUrl: downloadURL, 
+            date: new Date().toLocaleDateString('ar-MA'), 
+            timestamp: new Date().toISOString() 
+        };
+        
+        let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+        reportObj.firestoreId = docRef.id;
+        
+        pdfReportsList.unshift(reportObj);
+        saveLocalData();
+        
+        fileInput.value = ''; titleInput.value = '';
+        showToast('✅ تم الرفع بنجاح');
+        renderPDFReportsList();
+    } catch(err) {
+        console.error("Upload error:", err);
+        showToast('❌ فشل الرفع: تأكد من تفعيل Storage Rules في Firebase');
+    } finally {
+        if(uploadBtn) {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
         }
-    );
+    }
 }
 
 function renderPDFReportsList() { 
@@ -871,14 +812,13 @@ function renderPDFReportsList() {
 
 async function deletePDFReport(id, fileUrl) { 
     if(confirm('هل أنت متأكد من حذف هذه الوثيقة من سحابة الأرشيف العام؟')) { 
-        pdfReportsList = pdfReportsList.filter(r => r.firestoreId !== id); saveLocalData(); renderPDFReportsList(); 
-        if(navigator.onLine) {
-            try {
-                await deleteDoc(doc(db, "pdf_reports", id));
-                const fileRef = ref(storage, fileUrl); await deleteObject(fileRef);
-            } catch(e) { console.error(e); }
-        }
-        showToast('تم الحذف بنجاح'); 
+        if(!id || id.startsWith('local_')) { showToast('عنصر غير متزامن'); return; }
+        try {
+            await deleteDoc(doc(db, "pdf_reports", id));
+            const fileRef = ref(storage, fileUrl); await deleteObject(fileRef);
+            pdfReportsList = pdfReportsList.filter(r => r.firestoreId !== id); saveLocalData(); renderPDFReportsList();
+            showToast('تم الحذف بنجاح'); 
+        } catch(e) { console.error(e); showToast('❌ فشل الحذف'); }
     } 
 }
 
@@ -988,9 +928,9 @@ function calculateBill() {
     document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; 
 }
 
-// حل مشكلة الفواتير (مزامنة الـ ID)
 async function saveBill(isPaid) { 
     if(currentBillTotal >= 0) { 
+        if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت لحفظ الفاتورة');
         const counterInput = document.getElementById('counterNum').value.trim(); 
         const subNameStr = document.getElementById('subscriberName').value || 'غير محدد'; 
         const curr = parseFloat(document.getElementById('currReading').value) || 0; 
@@ -1001,32 +941,21 @@ async function saveBill(isPaid) {
         let billArchiveObj = { month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; 
         
         try { 
-            if (navigator.onLine) {
-                let billRef = await addDoc(collection(db, "archive_bills"), billArchiveObj);
-                billArchiveObj.firestoreId = billRef.id;
-            } else {
-                billArchiveObj.firestoreId = 'local_' + Date.now();
-                queueOfflineAction('add_bill', billArchiveObj);
-            }
+            let billRef = await addDoc(collection(db, "archive_bills"), billArchiveObj);
+            billArchiveObj.firestoreId = billRef.id;
             archiveBills.push(billArchiveObj);
 
             if (sub) { 
                 let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1); 
                 let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal); 
                 sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt; sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData)); 
-                if(navigator.onLine && !sub.firestoreId.startsWith('local_')) {
-                    await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }); 
-                }
+                await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }); 
             } 
             
             if (isPaid && currentBillTotal > 0) { 
                 let transObj = { month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; 
-                if(navigator.onLine) {
-                    let transRef = await addDoc(collection(db, "transactions"), transObj);
-                    transObj.firestoreId = transRef.id;
-                } else {
-                    transObj.firestoreId = 'local_trans_' + Date.now();
-                }
+                let transRef = await addDoc(collection(db, "transactions"), transObj);
+                transObj.firestoreId = transRef.id;
                 transactionsList.push(transObj); archiveFinance.push(transObj); 
                 recalculateFinancials(); 
             } 
@@ -1044,22 +973,20 @@ function renderDebts() { const container = document.getElementById('debtsListCon
 
 async function collectDebt(firestoreId, amount, counter, name) { 
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
-        let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
-        let nowMonth = new Date().toISOString().slice(0, 7); 
-        let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
-        
+        if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت');
         try {
-            if (navigator.onLine) { 
-                let transRef = await addDoc(collection(db, "transactions"), newTrans); 
-                newTrans.firestoreId = transRef.id;
-                if(!firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
-            } else {
-                newTrans.firestoreId = 'local_' + Date.now();
-            }
+            let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
+            let nowMonth = new Date().toISOString().slice(0, 7); 
+            let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
+            
+            let transRef = await addDoc(collection(db, "transactions"), newTrans); 
+            newTrans.firestoreId = transRef.id;
+            await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
+            
             transactionsList.push(newTrans); 
             recalculateFinancials(); saveLocalData(); 
             showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error(e); showToast('❌ فشل الاستخلاص'); }
     } 
 }
 
@@ -1084,7 +1011,7 @@ function renderArchive() {
 async function deleteArchiveBill(id) { 
     if(confirm('متأكد من الحذف؟')) { 
         archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) {
+        if(navigator.onLine && id && !id.startsWith('local_')) {
             try{ await deleteDoc(doc(db, "archive_bills", id)); }catch(e){}
         }
         renderArchive(); 
@@ -1093,7 +1020,7 @@ async function deleteArchiveBill(id) {
 async function deleteArchiveFinance(id, fileUrl) { 
     if(confirm('متأكد من الحذف؟')) { 
         archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); 
-        if(navigator.onLine && !id.startsWith('local_')) { 
+        if(navigator.onLine && id && !id.startsWith('local_')) { 
             try{
                 await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); 
                 if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } 
