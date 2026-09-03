@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -13,7 +12,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app); 
 
 let secureCodes = JSON.parse(localStorage.getItem('tamda_codes')) || { 'president': '1111', 'secretary': '2222', 'treasurer': '3333' };
 const roleNames = { 'president': 'الرئيس', 'secretary': 'الكاتب العام', 'treasurer': 'أمين المال', 'subscriber': 'المنخرط' };
@@ -605,7 +603,7 @@ async function saveDonation() {
         showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
     } catch (e) { 
         console.error("Firebase error details:", e);
-        showToast('❌ حدث خطأ في الحفظ السحابي، تفقد الكونسول لمزيد من التفاصيل'); 
+        showToast('❌ حدث خطأ في الحفظ السحابي'); 
     }
 }
 
@@ -639,36 +637,6 @@ async function deleteDonation(id) {
 
 function updateFinancialDashboard() { const normalIncome = totalIncome - totalDonationsIncome; if(document.getElementById('normalIncomeReport')) document.getElementById('normalIncomeReport').textContent = normalIncome + ' درهم'; if(document.getElementById('donationsIncomeReport')) document.getElementById('donationsIncomeReport').textContent = totalDonationsIncome + ' درهم'; if(document.getElementById('totalIncomeReport')) document.getElementById('totalIncomeReport').textContent = totalIncome + ' درهم'; if(document.getElementById('totalExpenseReport')) document.getElementById('totalExpenseReport').textContent = totalExpense + ' درهم'; }
 
-async function scanToPDFAndUpload(file) {
-    return new Promise((resolve, reject) => {
-        let reader = new FileReader();
-        reader.onload = function(e) {
-            let img = new Image(); img.onload = async function() {
-                let canvas = document.createElement('canvas'); let ctx = canvas.getContext('2d');
-                let maxWidth = 800; let scale = maxWidth / img.width; canvas.width = maxWidth; canvas.height = img.height * scale;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height); let data = imgData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    let avg = (data[i] + data[i+1] + data[i+2]) / 3; let contrast = 2.0; avg = (avg - 128) * contrast + 128;
-                    if(avg > 200) avg = 255; if(avg < 70) avg = 0; avg = Math.min(Math.max(avg, 0), 255);
-                    data[i] = avg; data[i+1] = avg; data[i+2] = avg;
-                }
-                ctx.putImageData(imgData, 0, 0);
-                const { jsPDF } = window.jspdf;
-                let pdf = new jsPDF({ orientation: canvas.width > canvas.height ? "l" : "p", unit: "px", format: [canvas.width, canvas.height] });
-                pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, canvas.width, canvas.height);
-                let pdfBase64 = pdf.output('datauristring');
-                try {
-                    const fileName = 'receipts/scan_' + Date.now() + '.pdf'; const storageRef = ref(storage, fileName);
-                    let blob = await (await fetch(pdfBase64)).blob();
-                    await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
-                    let downloadUrl = await getDownloadURL(storageRef); resolve(downloadUrl);
-                } catch(err) { reject(err); }
-            }; img.src = e.target.result;
-        }; reader.readAsDataURL(file);
-    });
-}
-
 async function saveTransaction() { 
     const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; 
     const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); 
@@ -676,13 +644,7 @@ async function saveTransaction() {
     if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); 
     if (!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت لحفظ المعاملة');
     
-    let receiptUrl = '';
-    if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        showToast('⏳ جاري المسح الضوئي وتحويل الوثيقة لـ PDF...');
-        try { await loadJsPDF(); receiptUrl = await scanToPDFAndUpload(fileInput.files[0]); } catch (e) { return showToast('❌ فشل تحويل أو رفع الوثيقة.'); }
-    }
-    
-    let transactionObj = { month, type, amount, desc, fileName: receiptUrl, timestamp: new Date().toISOString() }; 
+    let transactionObj = { month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; 
     
     try {
         let docRef = await addDoc(collection(db, "transactions"), transactionObj); 
@@ -702,18 +664,17 @@ function renderTransactions() {
     if(transactionsList.length === 0) return container.innerHTML = '<p>لا توجد عمليات مسجلة.</p>';
     transactionsList.slice().reverse().forEach((t) => { 
         const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'; 
-        div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><div style="display:flex; flex-direction:column; gap:5px;">${t.fileName ? `<a href="${t.fileName}" target="_blank" class="btn btn-blue" style="padding:4px 8px; font-size:0.8rem; margin:0; text-decoration:none; text-align:center;">📄 الوثيقة (PDF)</a>` : ''}<button class="action-btn" onclick="deleteTransaction('${t.firestoreId}', '${t.fileName}')">حذف</button></div>`; 
+        div.innerHTML = `<div class="list-info"><strong style="color:${t.type === 'income' ? 'var(--accent-green)' : 'var(--danger-red)'}">${t.type === 'income' ? 'مدخول (+)' : 'مصروف (-)'} ${t.amount} درهم</strong><span>الوصف: ${t.desc} | الشهر: ${t.month}</span></div><div style="display:flex; flex-direction:column; gap:5px;"><button class="action-btn" onclick="deleteTransaction('${t.firestoreId}')">حذف</button></div>`; 
         container.appendChild(div); 
     }); 
 }
 
-async function deleteTransaction(firestoreId, fileUrl) { 
+async function deleteTransaction(firestoreId) { 
     if(!firestoreId || firestoreId.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
         try {
             await deleteDoc(doc(db, "transactions", firestoreId)); 
             await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(()=>{});
-            if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); }
             
             transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
             archiveFinance = archiveFinance.filter(f => f.firestoreId !== firestoreId); 
@@ -738,6 +699,7 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
+// ✅ التخزين المباشر في قاعدة البيانات المجانية (Firestore) لتفادي مشكلة Storage والبطاقة البنكية
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -749,60 +711,58 @@ async function uploadFinancialPDF() {
     let file = fileInput.files[0];
     let title = titleInput.value.trim() || file.name;
 
+    if(file.size > 800000) {
+        return showToast('⚠️ حجم الملف كبير جداً. يرجى اختيار ملف أقل من 800 كيلوبايت.');
+    }
+
     if(uploadBtn) {
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '⏳ جاري بدء الرفع... 0%';
+        uploadBtn.textContent = '⏳ جاري الحفظ في قاعدة البيانات المجانية...';
     }
 
     try {
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
         
-        const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type || 'application/pdf' });
+        reader.onload = async function () {
+            let base64Data = reader.result;
 
-        uploadTask.on('state_changed', 
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                if(uploadBtn) uploadBtn.textContent = `⏳ جاري الرفع... ${Math.round(progress)}%`;
-            }, 
-            (error) => {
-                console.error("Upload error details:", error);
-                showToast('❌ فشل الرفع: تأكد من تفعيل قواعد Storage في Firebase');
-                if(uploadBtn) {
-                    uploadBtn.disabled = false;
-                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-                }
-            }, 
-            async () => {
-                let downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                
-                let reportObj = { 
-                    title: title, 
-                    fileUrl: downloadURL, 
-                    date: new Date().toLocaleDateString('ar-MA'), 
-                    timestamp: new Date().toISOString() 
-                };
-                
-                let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-                reportObj.firestoreId = docRef.id;
-                
-                pdfReportsList.unshift(reportObj);
-                saveLocalData();
-                
-                fileInput.value = ''; if(titleInput) titleInput.value = '';
-                showToast('✅ تم الرفع بنجاح');
-                renderPDFReportsList();
-                
-                if(uploadBtn) {
-                    uploadBtn.disabled = false;
-                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-                }
+            let reportObj = { 
+                title: title, 
+                fileUrl: base64Data, 
+                date: new Date().toLocaleDateString('ar-MA'), 
+                timestamp: new Date().toISOString() 
+            };
+            
+            let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+            reportObj.firestoreId = docRef.id;
+            
+            pdfReportsList.unshift(reportObj);
+            saveLocalData();
+            
+            fileInput.value = ''; 
+            if(titleInput) titleInput.value = '';
+            
+            showToast('✅ تم الحفظ بنجاح في قاعدة البيانات');
+            renderPDFReportsList();
+
+            if(uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
             }
-        );
-        
+        };
+
+        reader.onerror = function () {
+            showToast('❌ فشل قراءة الملف');
+            if(uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+            }
+        };
+
     } catch(err) {
-        console.error("Initiation Upload error:", err);
-        showToast('❌ حدث خطأ غير متوقع أثناء بدء الرفع.');
+        console.error(err);
+        showToast('❌ حدث خطأ أثناء الحفظ');
         if(uploadBtn) {
             uploadBtn.disabled = false;
             uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
@@ -814,16 +774,15 @@ function renderPDFReportsList() {
     const container = document.getElementById('pdfReportsContainer'); if(!container) return; container.innerHTML = ''; 
     if(pdfReportsList.length === 0) return container.innerHTML = '<p style="color:#666;">لا توجد وثائق أو تقارير مرفوعة في السحابة حتى الآن.</p>'; 
     pdfReportsList.forEach((rep) => { 
-        container.innerHTML += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;"><div><strong style="color:var(--primary-blue); font-size:1.1rem;">${rep.title}</strong><br><span style="font-size:0.85rem; color:#666;">مرفوع بتاريخ: ${rep.date}</span></div><div style="display:flex; gap:8px; flex-wrap:wrap;"><a href="${rep.fileUrl}" target="_blank" class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem; text-decoration:none;">👁️ قراءة / تحميل</a><button class="action-btn" onclick="deletePDFReport('${rep.firestoreId}', '${rep.fileUrl}')">حذف</button></div></div>`; 
+        container.innerHTML += `<div class="list-item" style="display:flex; justify-content:space-between; align-items:center;"><div><strong style="color:var(--primary-blue); font-size:1.1rem;">${rep.title}</strong><br><span style="font-size:0.85rem; color:#666;">مرفوع بتاريخ: ${rep.date}</span></div><div style="display:flex; gap:8px; flex-wrap:wrap;"><a href="${rep.fileUrl}" target="_blank" download="${rep.title}.pdf" class="btn btn-blue" style="padding:6px 12px; margin:0; font-size:0.85rem; text-decoration:none;">👁️ فتح / تحميل</a><button class="action-btn" onclick="deletePDFReport('${rep.firestoreId}')">حذف</button></div></div>`; 
     }); 
 }
 
-async function deletePDFReport(id, fileUrl) { 
+async function deletePDFReport(id) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
-    if(confirm('هل أنت متأكد من حذف هذه الوثيقة من سحابة الأرشيف العام؟')) { 
+    if(confirm('هل أنت متأكد من حذف هذه الوثيقة من السحابة؟')) { 
         try {
             await deleteDoc(doc(db, "pdf_reports", id));
-            const fileRef = ref(storage, fileUrl); await deleteObject(fileRef);
             pdfReportsList = pdfReportsList.filter(r => r.firestoreId !== id); saveLocalData(); renderPDFReportsList();
             showToast('تم الحذف بنجاح'); 
         } catch(e) { console.error(e); showToast('❌ فشل الحذف'); }
@@ -1011,8 +970,8 @@ function renderArchive() {
         const box = document.createElement('div'); box.className = 'archive-month-box'; 
         let html = `<div class="printable-archive"><h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px;"><span>📅 الأرشيف الشامل - شهر: ${month}</span></h4><div style="display:flex; gap:20px; margin-bottom:10px; font-size:0.95rem; background:var(--bg-light); padding:8px; border-radius:6px;"><span>الاستهلاك: <strong>${monthTotalWater} m³</strong></span><span>المبالغ المحصلة: <strong class="text-success">${monthTotalAmount} درهم</strong></span></div>`; 
         if(monthBills.length > 0) { html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthBills.forEach(b => { html += `<tr><td>${b.counter}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } 
-        html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية (مع الوثائق):</h5>`; 
-        if(monthFinance.length > 0) { html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">الوثيقة</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthFinance.forEach(f => { html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print">${f.fileName ? `<a href="${f.fileName}" target="_blank" style="color:var(--primary-blue); font-weight:bold; text-decoration:underline;">📄 عرض (PDF)</a>` : '-'}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}', '${f.fileName}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } 
+        html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية:</h5>`; 
+        if(monthFinance.length > 0) { html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthFinance.forEach(f => { html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } 
         html += `</div>`; box.innerHTML = html; container.appendChild(box); 
     }); 
 }
@@ -1028,13 +987,11 @@ async function deleteArchiveBill(id) {
     } 
 }
 
-async function deleteArchiveFinance(id, fileUrl) { 
+async function deleteArchiveFinance(id) { 
     if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(confirm('متأكد من الحذف؟')) { 
         try{
             await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); 
-            if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } 
-            
             archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); 
             renderArchive(); 
         } catch(e){ console.error(e); }
