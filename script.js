@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getStorage, ref, uploadString, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFFwAQ2XOerYs2H1Qrs9b9_mWMmoToxfo",
@@ -64,17 +64,21 @@ function loadJsPDF() {
     });
 }
 
-// التحكم في زر الرجوع (الهاتف) - ضغطتين للخروج
+// ================== حل مشكلة زر الرجوع (الضغطتين) ==================
 let backPressTimer = null;
+// إجبار المتصفح على إنشاء سجل وهمي لمنع الخروج المباشر
 history.pushState(null, null, location.href);
+
 window.addEventListener('popstate', (e) => {
     if (backPressTimer) {
+        // الضغطة الثانية خلال ثانيتين: خروج طبيعي
         clearTimeout(backPressTimer);
-        window.history.back(); 
+        window.history.back();
     } else {
+        // الضغطة الأولى: منع الخروج، إظهار تنبيه وإعادة السجل الوهمي
         e.preventDefault();
         history.pushState(null, null, location.href); 
-        showToast('⚠️ اضغط زر الرجوع مرة أخرى للخروج');
+        showToast('⚠️ اضغط مرة أخرى للخروج من التطبيق');
         backPressTimer = setTimeout(() => { backPressTimer = null; }, 2000);
     }
 });
@@ -129,12 +133,8 @@ function checkAuth() {
         if (isAuth) {
             let lastActive = parseInt(localStorage.getItem('tamda_last_active') || '0');
             if (lastActive > 0 && (Date.now() - lastActive > SESSION_TIMEOUT)) {
-                localStorage.removeItem('tamda_auth');
-                localStorage.removeItem('tamda_role');
-                localStorage.removeItem('tamda_counter');
-                localStorage.removeItem('tamda_subname');
-                localStorage.removeItem('tamda_last_active');
-                isAuth = false;
+                logout(true);
+                return;
             }
         }
 
@@ -219,7 +219,7 @@ function logout(isTimeout = false) {
     const loginScreen = document.getElementById('loginScreen');
     if(appContent) appContent.style.display = 'none';
     if(loginScreen) loginScreen.style.display = 'flex';
-    if(isTimeout === true) alert("تم تسجيل الخروج تلقائياً لمرور 3 دقائق دون نشاط لحماية البيانات.");
+    if(isTimeout === true) showToast("تم تسجيل الخروج تلقائياً لمرور 3 دقائق دون نشاط.");
 }
 
 function handleEnter(e) { if (e.key === 'Enter') authenticate(); }
@@ -241,7 +241,7 @@ function toggleSidebar() {
 
 function showToast(message) {
     if(!toast) return; toast.textContent = message; toast.classList.add('show');
-    setTimeout(() => { toast.classList.remove('show'); }, 2500);
+    setTimeout(() => { toast.classList.remove('show'); }, 3000);
 }
 
 function navigateTo(pageName) {
@@ -427,26 +427,32 @@ async function saveSubscriber() {
         if (editingId) {
             let sub = subscribers.find(s => s.firestoreId === editingId);
             if(sub) { sub.counter = counter; sub.name = name; sub.phone = phone; sub.location = loc; }
-            if (navigator.onLine && !editingId.startsWith('local_')) await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location: loc }).catch(() => {});
+            if (navigator.onLine && !editingId.startsWith('local_')) {
+                await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location: loc });
+            }
             showToast('تم تعديل بيانات المشترك بنجاح!');
             resetSubForm();
         } else {
             if (subscribers.find(s => s.counter == counter)) return showToast('العداد مسجل مسبقاً!');
-            let newSub = { firestoreId: 'local_' + Date.now(), counter: counter, name: name, phone: phone, location: loc, lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: '', avgConsumption: 15, pin: '' };
-            subscribers.push(newSub); subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
+            
+            let newSub = { counter: counter, name: name, phone: phone, location: loc, lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: '', avgConsumption: 15, pin: '' };
             
             if (navigator.onLine) {
-                let newRef = doc(collection(db, "subscribers"));
-                newSub.firestoreId = newRef.id;
-                await setDoc(newRef, newSub);
+                let docRef = await addDoc(collection(db, "subscribers"), newSub);
+                newSub.firestoreId = docRef.id;
             } else {
+                newSub.firestoreId = 'local_' + Date.now();
                 queueOfflineAction('add_subscriber', newSub);
             }
             
-            document.getElementById('newSubCounter').value = ''; document.getElementById('newSubName').value = ''; document.getElementById('newSubPhone').value = ''; document.getElementById('newSubLocation').value = ''; showToast('تم حفظ المشترك بنجاح');
+            subscribers.push(newSub);
+            subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
+            
+            document.getElementById('newSubCounter').value = ''; document.getElementById('newSubName').value = ''; document.getElementById('newSubPhone').value = ''; document.getElementById('newSubLocation').value = ''; 
+            showToast('تم حفظ المشترك بنجاح');
         }
         saveLocalData(); renderSubscribers();
-    } catch (e) { showToast('تم الحفظ محلياً'); }
+    } catch (e) { console.error(e); showToast('❌ حدث خطأ أثناء الحفظ'); }
 }
 
 function editSubscriber(firestoreId) {
@@ -492,7 +498,16 @@ async function generateAndSendPIN(firestoreId) {
     window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank'); showToast('تم توليد الكود وفتح واتساب'); renderSubscribers();
 }
 
-async function deleteSubscriber(id) { if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { subscribers = subscribers.filter(s => s.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "subscribers", id)); renderSubscribers(); showToast('تم الحذف بنجاح'); } }
+async function deleteSubscriber(id) { 
+    if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { 
+        subscribers = subscribers.filter(s => s.firestoreId !== id); 
+        saveLocalData(); 
+        if(navigator.onLine && !id.startsWith('local_')) {
+            try { await deleteDoc(doc(db, "subscribers", id)); console.log("Deleted"); } catch(e){ console.error(e); }
+        }
+        renderSubscribers(); showToast('تم الحذف بنجاح'); 
+    } 
+}
 
 // ================== بوابات ونظام المشتركين ==================
 function renderSubPortalBills() {
@@ -510,18 +525,18 @@ function renderSubPortalBills() {
 async function submitComplaint() {
     const text = document.getElementById('complaintText').value.trim(); if(!text) return showToast('المرجو كتابة الشكاية أو الطلب أولاً');
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname');
-    let comp = { firestoreId: 'local_' + Date.now(), counter: subCounter, name: subName, text: text, date: new Date().toLocaleDateString('ar-MA'), status: 'جديدة' };
-    complaintsList.push(comp); 
+    let comp = { counter: subCounter, name: subName, text: text, date: new Date().toLocaleDateString('ar-MA'), status: 'جديدة' };
     
-    if(navigator.onLine) {
-        let newRef = doc(collection(db, "complaints"));
-        comp.firestoreId = newRef.id;
-        await setDoc(newRef, comp);
-    } else {
-        queueOfflineAction('add_complaint', comp);
-    }
-    
-    saveLocalData(); document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
+    try {
+        if(navigator.onLine) {
+            let docRef = await addDoc(collection(db, "complaints"), comp);
+            comp.firestoreId = docRef.id;
+        } else {
+            comp.firestoreId = 'local_' + Date.now();
+            queueOfflineAction('add_complaint', comp);
+        }
+        complaintsList.push(comp); saveLocalData(); document.getElementById('complaintText').value = ''; showToast('تم إرسال طلبك للإدارة بنجاح!');
+    } catch (e) { showToast('❌ خطأ في الإرسال'); }
 }
 
 function renderAdminComplaints() {
@@ -534,7 +549,15 @@ function renderAdminComplaints() {
     });
 }
 async function markComplaintRead(id) { let comp = complaintsList.find(c => c.firestoreId === id); if(comp) { comp.status = 'تمت المعالجة'; saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await updateDoc(doc(db, "complaints", id), { status: 'تمت المعالجة' }); renderAdminComplaints(); } }
-async function deleteComplaint(id) { if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "complaints", id)); renderAdminComplaints(); } }
+async function deleteComplaint(id) { 
+    if(confirm('هل تريد حذف هذه الشكاية نهائياً؟')) { 
+        complaintsList = complaintsList.filter(c => c.firestoreId !== id); saveLocalData(); 
+        if(navigator.onLine && !id.startsWith('local_')) {
+            try{ await deleteDoc(doc(db, "complaints", id)); }catch(e){}
+        }
+        renderAdminComplaints(); 
+    } 
+}
 
 function processAutoMonthlyCapital() {
     let currentMonth = new Date().toISOString().slice(0, 7); let allPastMonths = new Set();
@@ -548,14 +571,17 @@ function processAutoMonthlyCapital() {
             donationsList.filter(d => d.month === monthStr).forEach(d => { mDonations += Number(d.amount); });
             let netAmount = (mIncome + mDonations) - mExpense;
             if (netAmount > 0) {
-                let ledgerEntry = { firestoreId: 'local_cap_' + Date.now() + Math.random(), date: new Date().toLocaleDateString('ar-MA'), targetMonth: monthStr, type: 'auto_month', amount: netAmount, desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString() };
-                capitalLedger.push(ledgerEntry);
-                if(navigator.onLine) {
-                    let newRef = doc(collection(db, "capital_ledger"));
-                    ledgerEntry.firestoreId = newRef.id;
-                    await setDoc(newRef, ledgerEntry);
-                } else queueOfflineAction('add_capital', ledgerEntry);
-                saveLocalData();
+                let ledgerEntry = { date: new Date().toLocaleDateString('ar-MA'), targetMonth: monthStr, type: 'auto_month', amount: netAmount, desc: `الرصيد الصافي المحصل لشهر ${monthStr}`, timestamp: new Date().toISOString() };
+                try {
+                    if(navigator.onLine) {
+                        let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
+                        ledgerEntry.firestoreId = docRef.id;
+                    } else {
+                        ledgerEntry.firestoreId = 'local_cap_' + Date.now();
+                        queueOfflineAction('add_capital', ledgerEntry);
+                    }
+                    capitalLedger.push(ledgerEntry); saveLocalData();
+                } catch(e) {}
             }
         }
     });
@@ -565,16 +591,19 @@ async function addManualCapital() {
     let amtStr = prompt("أدخل المبلغ المراد إضافته للصندوق (بالدرهم):"); if(!amtStr) return;
     let amount = parseFloat(amtStr); if(isNaN(amount) || amount <= 0) return showToast("مبلغ غير صحيح");
     let desc = prompt("أدخل سبب أو مصدر هذا المبلغ:", "إضافة يدوية للرصيد"); if(!desc) desc = "إضافة يدوية للرصيد";
-    let ledgerEntry = { firestoreId: 'local_cap_' + Date.now(), date: new Date().toLocaleDateString('ar-MA'), targetMonth: new Date().toISOString().slice(0, 7), type: 'manual', amount: amount, desc: desc, timestamp: new Date().toISOString() };
-    capitalLedger.push(ledgerEntry);
     
-    if(navigator.onLine) {
-        let newRef = doc(collection(db, "capital_ledger"));
-        ledgerEntry.firestoreId = newRef.id;
-        await setDoc(newRef, ledgerEntry);
-    } else queueOfflineAction('add_capital', ledgerEntry);
+    let ledgerEntry = { date: new Date().toLocaleDateString('ar-MA'), targetMonth: new Date().toISOString().slice(0, 7), type: 'manual', amount: amount, desc: desc, timestamp: new Date().toISOString() };
     
-    saveLocalData(); renderCapital(); showToast("تم إضافة المبلغ للصندوق بنجاح");
+    try {
+        if(navigator.onLine) {
+            let docRef = await addDoc(collection(db, "capital_ledger"), ledgerEntry);
+            ledgerEntry.firestoreId = docRef.id;
+        } else {
+            ledgerEntry.firestoreId = 'local_cap_' + Date.now();
+            queueOfflineAction('add_capital', ledgerEntry);
+        }
+        capitalLedger.push(ledgerEntry); saveLocalData(); renderCapital(); showToast("تم إضافة المبلغ للصندوق بنجاح");
+    } catch(e) { showToast("❌ حدث خطأ في الحفظ"); }
 }
 
 function renderCapital() {
@@ -587,29 +616,42 @@ function renderCapital() {
     if(capitalLedger.length === 0) container.innerHTML = '<p>لا توجد مبالغ في الصندوق.</p>';
     if(document.getElementById('mainCapitalAmount')) document.getElementById('mainCapitalAmount').textContent = totalCap + " درهم";
 }
-async function deleteCapitalEntry(id) { if(confirm('هل تريد حذف هذه العملية من الصندوق نهائياً؟')) { capitalLedger = capitalLedger.filter(c => c.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "capital_ledger", id)).catch(() => {}); renderCapital(); showToast('تم الحذف بنجاح!'); } }
+async function deleteCapitalEntry(id) { 
+    if(confirm('هل تريد حذف هذه العملية من الصندوق نهائياً؟')) { 
+        capitalLedger = capitalLedger.filter(c => c.firestoreId !== id); saveLocalData(); 
+        if(navigator.onLine && !id.startsWith('local_')) {
+            try{ await deleteDoc(doc(db, "capital_ledger", id)); }catch(e){}
+        }
+        renderCapital(); showToast('تم الحذف بنجاح!'); 
+    } 
+}
 
 // ================== سجل التبرعات ==================
+// حل مشكلة التبرعات (مزامنة الـ ID)
 async function saveDonation() { 
     const month = document.getElementById('donationMonth').value; 
     const name = document.getElementById('donationName').value.trim(); 
     const amount = parseFloat(document.getElementById('donationAmount').value) || 0; 
     if (amount <= 0 || !month || !name) return showToast('أدخل البيانات كاملة'); 
     
-    let donObj = { firestoreId: 'local_' + Date.now(), month, name, amount, timestamp: new Date().toISOString() }; 
-    donationsList.push(donObj); 
+    let donObj = { month, name, amount, timestamp: new Date().toISOString() }; 
     
-    if (navigator.onLine) {
-        let newRef = doc(collection(db, "donations"));
-        donObj.firestoreId = newRef.id;
-        await setDoc(newRef, donObj);
-    } else {
-        queueOfflineAction('add_donation', donObj);
+    try {
+        if (navigator.onLine) {
+            let docRef = await addDoc(collection(db, "donations"), donObj);
+            donObj.firestoreId = docRef.id; // أخذ المعرف الحقيقي فورا
+        } else {
+            donObj.firestoreId = 'local_' + Date.now();
+            queueOfflineAction('add_donation', donObj);
+        }
+        
+        donationsList.push(donObj); 
+        recalculateFinancials(); saveLocalData(); 
+        document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; 
+        showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
+    } catch (e) {
+        console.error(e); showToast('❌ حدث خطأ في الحفظ السحابي');
     }
-    
-    recalculateFinancials(); saveLocalData(); 
-    document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; 
-    showToast('تم تسجيل التبرع بنجاح'); renderDonations(); updateFinancialDashboard(); 
 }
 
 function renderDonations() { 
@@ -629,11 +671,15 @@ async function deleteDonation(id) {
         donationsList = donationsList.filter(d => d.firestoreId !== id); 
         recalculateFinancials(); saveLocalData(); 
         if(navigator.onLine && !id.startsWith('local_')) {
-            await deleteDoc(doc(db, "donations", id)).catch(e => console.error(e));
+            try { 
+                await deleteDoc(doc(db, "donations", id)); 
+                console.log("Donation deleted from DB");
+            } catch(e) { console.error("Error deleting donation:", e); }
         }
         renderDonations(); updateFinancialDashboard(); 
     } 
 }
+
 function updateFinancialDashboard() { const normalIncome = totalIncome - totalDonationsIncome; if(document.getElementById('normalIncomeReport')) document.getElementById('normalIncomeReport').textContent = normalIncome + ' درهم'; if(document.getElementById('donationsIncomeReport')) document.getElementById('donationsIncomeReport').textContent = totalDonationsIncome + ' درهم'; if(document.getElementById('totalIncomeReport')) document.getElementById('totalIncomeReport').textContent = totalIncome + ' درهم'; if(document.getElementById('totalExpenseReport')) document.getElementById('totalExpenseReport').textContent = totalExpense + ' درهم'; }
 
 // ================== المعاملات المالية والسكانر ==================
@@ -665,33 +711,41 @@ async function scanToPDFAndUpload(file) {
         }; reader.readAsDataURL(file);
     });
 }
+
+// حل مشكلة المعاملات المالية (مزامنة الـ ID)
 async function saveTransaction() { 
     const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; 
     const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); 
     const fileInput = document.getElementById('transFile'); 
     if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); 
     let receiptUrl = '';
+    
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
         if (!navigator.onLine) return showToast('⚠️ لا يمكن مسح ورفع الوثائق إلا عند الاتصال بالإنترنت.');
         showToast('⏳ جاري المسح الضوئي وتحويل الوثيقة لـ PDF...');
         try { await loadJsPDF(); receiptUrl = await scanToPDFAndUpload(fileInput.files[0]); } catch (e) { return showToast('❌ فشل تحويل أو رفع الوثيقة.'); }
     }
     
-    let transactionObj = { firestoreId: 'local_' + Date.now(), month, type, amount, desc, fileName: receiptUrl, timestamp: new Date().toISOString() }; 
-    transactionsList.push(transactionObj); archiveFinance.push(transactionObj); 
+    let transactionObj = { month, type, amount, desc, fileName: receiptUrl, timestamp: new Date().toISOString() }; 
     
-    if (navigator.onLine) { 
-        let newRef = doc(collection(db, "transactions"));
-        transactionObj.firestoreId = newRef.id;
-        await setDoc(newRef, transactionObj); 
-        await setDoc(doc(db, "archive_finance", newRef.id), transactionObj); 
-    } else {
-        queueOfflineAction('add_transaction', transactionObj);
+    try {
+        if (navigator.onLine) { 
+            let docRef = await addDoc(collection(db, "transactions"), transactionObj); 
+            transactionObj.firestoreId = docRef.id; // المعرف الحقيقي
+            await addDoc(collection(db, "archive_finance"), transactionObj); 
+        } else {
+            transactionObj.firestoreId = 'local_' + Date.now();
+            queueOfflineAction('add_transaction', transactionObj);
+        }
+        
+        transactionsList.push(transactionObj); archiveFinance.push(transactionObj); 
+        recalculateFinancials(); saveLocalData(); 
+        
+        document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; if(fileInput) fileInput.value = '';
+        showToast('تم تسجيل العملية المالية بنجاح'); renderTransactions(); updateFinancialDashboard(); 
+    } catch(e) {
+        console.error(e); showToast('❌ حدث خطأ في الحفظ');
     }
-    
-    recalculateFinancials(); saveLocalData(); 
-    document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; if(fileInput) fileInput.value = '';
-    showToast('تم تسجيل العملية المالية بنجاح'); renderTransactions(); updateFinancialDashboard(); 
 }
 
 function renderTransactions() { 
@@ -703,6 +757,7 @@ function renderTransactions() {
         container.appendChild(div); 
     }); 
 }
+
 async function deleteTransaction(firestoreId, fileUrl) { 
     if(confirm('هل تريد حذف هذه العملية المالية؟')) { 
         transactionsList = transactionsList.filter(t => t.firestoreId !== firestoreId); 
@@ -712,15 +767,18 @@ async function deleteTransaction(firestoreId, fileUrl) {
         recalculateFinancials(); saveLocalData(); 
         
         if(navigator.onLine && !firestoreId.startsWith('local_')) {
-            await deleteDoc(doc(db, "transactions", firestoreId)).catch(() => {}); 
-            await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(() => {});
-            if(fileUrl && fileUrl.includes('firebasestorage')) { try { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } catch(e) {} }
+            try {
+                await deleteDoc(doc(db, "transactions", firestoreId)); 
+                await deleteDoc(doc(db, "archive_finance", firestoreId)).catch(()=>{});
+                if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); }
+                console.log("Transaction deleted");
+            } catch(e) { console.error("Error deleting transaction", e); }
         }
         renderTransactions(); updateFinancialDashboard(); renderArchive(); renderCapital(); showToast('تم حذف العملية بنجاح!');
     } 
 }
 
-// ================== القانون الأساسي و التقارير ==================
+// ================== القانون الأساسي و التقارير (مع النسبة المئوية) ==================
 async function saveBylaws() { 
     let text = document.getElementById('bylawInput').value; document.getElementById('bylawDisplay').textContent = text || 'لا يوجد قانون أساسي مسجل حالياً.'; 
     showToast('⏳ جاري الحفظ في السحابة...');
@@ -733,6 +791,7 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
+// حل مشكلة تعليق PDF وإظهار النسبة
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -746,39 +805,60 @@ async function uploadFinancialPDF() {
 
     if(uploadBtn) {
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '⏳ جاري الرفع للسحابة، المرجو الانتظار...';
-        uploadBtn.style.opacity = '0.7';
+        uploadBtn.textContent = '⏳ جاري بدء الرفع... 0%';
     }
 
-    try {
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const fileName = 'reports/doc_' + Date.now() + '_' + safeName;
-        const storageRef = ref(storage, fileName);
-        
-        // الرفع المباشر والسريع لعدم التسبب في توقف التطبيق
-        await uploadBytes(storageRef, file);
-        let downloadUrl = await getDownloadURL(storageRef);
-        
-        let reportObj = { title: title, fileUrl: downloadUrl, date: new Date().toLocaleDateString('ar-MA'), timestamp: new Date().toISOString() };
-        let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
-        reportObj.firestoreId = docRef.id;
-        
-        pdfReportsList.unshift(reportObj);
-        saveLocalData();
-        
-        fileInput.value = ''; titleInput.value = '';
-        showToast('✅ تم رفع الوثيقة بنجاح');
-        renderPDFReportsList();
-    } catch(err) {
-        console.error(err);
-        showToast('❌ فشل الرفع: تأكد من جودة الإنترنت وحجم الملف');
-    } finally {
-        if(uploadBtn) {
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
-            uploadBtn.style.opacity = '1';
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const storageRef = ref(storage, 'reports/doc_' + Date.now() + '_' + safeName);
+    
+    // مراقبة الرفع وعرض النسبة المئوية
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on('state_changed', 
+        (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            if(uploadBtn) uploadBtn.textContent = `⏳ جاري الرفع... ${Math.round(progress)}%`;
+        }, 
+        (error) => {
+            console.error("Upload error:", error);
+            showToast('❌ فشل الرفع، تأكد من صلاحيات Firebase Storage');
+            if(uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '⬆️ إعادة المحاولة';
+            }
+        }, 
+        async () => {
+            try {
+                if(uploadBtn) uploadBtn.textContent = '⏳ جاري حفظ الرابط...';
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                
+                let reportObj = { 
+                    title: title, 
+                    fileUrl: downloadURL, 
+                    date: new Date().toLocaleDateString('ar-MA'), 
+                    timestamp: new Date().toISOString() 
+                };
+                
+                let docRef = await addDoc(collection(db, "pdf_reports"), reportObj);
+                reportObj.firestoreId = docRef.id;
+                
+                pdfReportsList.unshift(reportObj);
+                saveLocalData();
+                
+                fileInput.value = ''; titleInput.value = '';
+                showToast('✅ تم الرفع بنجاح 100%');
+                renderPDFReportsList();
+            } catch (e) {
+                console.error(e);
+                showToast('❌ خطأ أثناء حفظ بيانات الملف في قاعدة البيانات');
+            } finally {
+                if(uploadBtn) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '⬆️ رفع وحفظ في سحابة الأرشيف';
+                }
+            }
         }
-    }
+    );
 }
 
 function renderPDFReportsList() { 
@@ -793,8 +873,10 @@ async function deletePDFReport(id, fileUrl) {
     if(confirm('هل أنت متأكد من حذف هذه الوثيقة من سحابة الأرشيف العام؟')) { 
         pdfReportsList = pdfReportsList.filter(r => r.firestoreId !== id); saveLocalData(); renderPDFReportsList(); 
         if(navigator.onLine) {
-            await deleteDoc(doc(db, "pdf_reports", id)).catch(()=>{});
-            try { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } catch(e){}
+            try {
+                await deleteDoc(doc(db, "pdf_reports", id));
+                const fileRef = ref(storage, fileUrl); await deleteObject(fileRef);
+            } catch(e) { console.error(e); }
         }
         showToast('تم الحذف بنجاح'); 
     } 
@@ -906,6 +988,7 @@ function calculateBill() {
     document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = subName; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('consumptionPriceResult').textContent = consumptionCost + ' درهم'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم'; document.getElementById('billResult').style.display = 'block'; 
 }
 
+// حل مشكلة الفواتير (مزامنة الـ ID)
 async function saveBill(isPaid) { 
     if(currentBillTotal >= 0) { 
         const counterInput = document.getElementById('counterNum').value.trim(); 
@@ -915,37 +998,42 @@ async function saveBill(isPaid) {
         const isExempt = document.getElementById('exemptionCheck').checked; 
         const sub = subscribers.find(s => s.counter == counterInput); 
         
-        let billArchiveObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; 
+        let billArchiveObj = { month: currentMonth, counter: counterInput, name: subNameStr, consumption: currentConsumptionData, t1: currentT1, t2: currentT2, t3: currentT3, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; 
         
         try { 
-            archiveBills.push(billArchiveObj); 
             if (navigator.onLine) {
-                let billRef = doc(collection(db, "archive_bills"));
+                let billRef = await addDoc(collection(db, "archive_bills"), billArchiveObj);
                 billArchiveObj.firestoreId = billRef.id;
-                await setDoc(billRef, billArchiveObj);
-            } else queueOfflineAction('add_bill', billArchiveObj);
+            } else {
+                billArchiveObj.firestoreId = 'local_' + Date.now();
+                queueOfflineAction('add_bill', billArchiveObj);
+            }
+            archiveBills.push(billArchiveObj);
 
             if (sub) { 
                 let newDelay = isPaid ? 0 : ((sub.delayMonths || 0) + 1); 
                 let newDebt = isPaid ? 0 : ((sub.debtAmount || 0) + currentBillTotal); 
                 sub.lastReading = curr; sub.lastBilledMonth = currentMonth; sub.delayMonths = newDelay; sub.debtAmount = newDebt; sub.avgConsumption = Math.round((sub.avgConsumption ? (sub.avgConsumption + currentConsumptionData) / 2 : currentConsumptionData)); 
-                if(navigator.onLine && !sub.firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }).catch(() => {}); 
+                if(navigator.onLine && !sub.firestoreId.startsWith('local_')) {
+                    await updateDoc(doc(db, "subscribers", sub.firestoreId), { lastReading: curr, lastBilledMonth: currentMonth, delayMonths: newDelay, debtAmount: newDebt, avgConsumption: sub.avgConsumption }); 
+                }
             } 
             
             if (isPaid && currentBillTotal > 0) { 
-                let transObj = { firestoreId: 'local_' + Date.now(), month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; 
-                transactionsList.push(transObj); archiveFinance.push(transObj); 
+                let transObj = { month: currentMonth, type: 'income', amount: currentBillTotal, desc: `استخلاص فاتورة ماء - عداد: ${counterInput}`, fileName: '', timestamp: new Date().toISOString() }; 
                 if(navigator.onLine) {
-                    let transRef = doc(collection(db, "transactions"));
+                    let transRef = await addDoc(collection(db, "transactions"), transObj);
                     transObj.firestoreId = transRef.id;
-                    await setDoc(transRef, transObj);
+                } else {
+                    transObj.firestoreId = 'local_trans_' + Date.now();
                 }
+                transactionsList.push(transObj); archiveFinance.push(transObj); 
                 recalculateFinancials(); 
             } 
             
             saveLocalData(); 
             showToast('تم حفظ الفاتورة بنجاح'); currentBillTotal = 0; document.getElementById('billResult').style.display = 'none'; document.getElementById('currReading').value = ''; document.getElementById('exemptionCheck').checked = false; document.getElementById('smartAlertBox').style.display = 'none'; let nextCounter = parseInt(counterInput); if (!isNaN(nextCounter)) document.getElementById('counterNum').value = nextCounter + 1; autoFillSubscriber(); 
-        } catch (e) { showToast('فشل الحفظ'); } 
+        } catch (e) { console.error(e); showToast('❌ فشل الحفظ'); } 
     } else { showToast('يرجى حساب الفاتورة أولاً'); } 
 }
 
@@ -958,18 +1046,20 @@ async function collectDebt(firestoreId, amount, counter, name) {
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
         let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
         let nowMonth = new Date().toISOString().slice(0, 7); 
-        let newTrans = { firestoreId: 'local_' + Date.now(), month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
-        transactionsList.push(newTrans); 
+        let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
         
-        if (navigator.onLine) { 
-            let transRef = doc(collection(db, "transactions"));
-            newTrans.firestoreId = transRef.id;
-            await setDoc(transRef, newTrans);
-            if(!firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
-        } 
-        
-        recalculateFinancials(); saveLocalData(); 
-        showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
+        try {
+            if (navigator.onLine) { 
+                let transRef = await addDoc(collection(db, "transactions"), newTrans); 
+                newTrans.firestoreId = transRef.id;
+                if(!firestoreId.startsWith('local_')) await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
+            } else {
+                newTrans.firestoreId = 'local_' + Date.now();
+            }
+            transactionsList.push(newTrans); 
+            recalculateFinancials(); saveLocalData(); 
+            showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
+        } catch(e) { console.error(e); }
     } 
 }
 
@@ -991,8 +1081,27 @@ function renderArchive() {
         html += `</div>`; box.innerHTML = html; container.appendChild(box); 
     }); 
 }
-async function deleteArchiveBill(id) { if(confirm('متأكد من الحذف؟')) { archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) await deleteDoc(doc(db, "archive_bills", id)); renderArchive(); } }
-async function deleteArchiveFinance(id, fileUrl) { if(confirm('متأكد من الحذف؟')) { archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); if(navigator.onLine && !id.startsWith('local_')) { await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); if(fileUrl && fileUrl.includes('firebasestorage')) { try { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } catch(e) {} } } renderArchive(); } }
+async function deleteArchiveBill(id) { 
+    if(confirm('متأكد من الحذف؟')) { 
+        archiveBills = archiveBills.filter(b => b.firestoreId !== id); saveLocalData(); 
+        if(navigator.onLine && !id.startsWith('local_')) {
+            try{ await deleteDoc(doc(db, "archive_bills", id)); }catch(e){}
+        }
+        renderArchive(); 
+    } 
+}
+async function deleteArchiveFinance(id, fileUrl) { 
+    if(confirm('متأكد من الحذف؟')) { 
+        archiveFinance = archiveFinance.filter(f => f.firestoreId !== id); transactionsList = transactionsList.filter(t => t.firestoreId !== id); saveLocalData(); 
+        if(navigator.onLine && !id.startsWith('local_')) { 
+            try{
+                await deleteDoc(doc(db, "archive_finance", id)); await deleteDoc(doc(db, "transactions", id)).catch(()=>{}); 
+                if(fileUrl && fileUrl.includes('firebasestorage')) { const fileRef = ref(storage, fileUrl); await deleteObject(fileRef); } 
+            } catch(e){}
+        } 
+        renderArchive(); 
+    } 
+}
 
 function toggleStatInputs() { const type = document.getElementById('statTypeSelect').value; document.getElementById('monthInputGroup').style.display = (type === 'monthly') ? 'block' : 'none'; document.getElementById('yearInputGroup').style.display = (type === 'yearly') ? 'block' : 'none'; renderAdvancedStats(); }
 function renderAdvancedStats() { const container = document.getElementById('statsContainer'); if(!container) return; const type = document.getElementById('statTypeSelect').value; let filteredBills = []; let periodTitle = ''; if (type === 'monthly') { const monthSelect = document.getElementById('statsMonthSelect'); if(!monthSelect.value) { let now = new Date(); monthSelect.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'); } filteredBills = archiveBills.filter(b => b.month === monthSelect.value); periodTitle = `شهر: ${monthSelect.value}`; } else { const yearSelect = document.getElementById('statsYearSelect'); filteredBills = archiveBills.filter(b => b.month && b.month.startsWith(yearSelect.value)); periodTitle = `سنة: ${yearSelect.value}`; } if(filteredBills.length === 0) return container.innerHTML = `<p style="margin-top:15px; color:#666;">لا توجد بيانات لـ (${periodTitle}).</p>`; let totalWater = 0, totalT1 = 0, totalT2 = 0, totalT3 = 0, maxConsumption = -1, topConsumer = '---'; filteredBills.forEach(b => { let cons = Number(b.consumption || 0); totalWater += cons; totalT1 += Number(b.t1 || 0); totalT2 += Number(b.t2 || 0); totalT3 += Number(b.t3 || 0); if(cons > maxConsumption) { maxConsumption = cons; topConsumer = `عداد (${b.counter}) ${b.name} (${cons} m³)`; } }); let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0; let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0; let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0; container.innerHTML = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;"><div class="stat-row"><span>الاستهلاك (${periodTitle}):</span><strong style="color:var(--primary-blue); font-size:1.2rem;">${totalWater} m³</strong></div><div class="stat-row"><span>الأكثر استهلاكاً:</span><strong class="text-danger">${topConsumer}</strong></div><h4 style="margin:10px 0 5px 0; color:var(--primary-blue);">📈 مبيانات الأشطر:</h4><div class="chart-container"><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الأول</span><span>${p1}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p1}%; background: var(--accent-green);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثاني</span><span>${p2}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p2}%; background: var(--secondary-cyan);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثالث</span><span>${p3}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p3}%; background: var(--danger-red);"></div></div></div></div></div>`; }
