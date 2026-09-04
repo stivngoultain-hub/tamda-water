@@ -30,7 +30,6 @@ let appSettings = { tier1: 4, tier2: 8, tier3: 15, maintenance: 15, penalty: 50 
 let transactionsList = []; let donationsList = []; 
 let archiveBills = []; let archiveFinance = [];
 let capitalLedger = []; 
-let pdfReportsList = []; 
 
 const SESSION_TIMEOUT = 3 * 60 * 1000; 
 
@@ -92,7 +91,10 @@ function checkAuth() {
             let role = localStorage.getItem('tamda_role');
             if (role === 'subscriber') {
                 document.getElementById('adminLinks').style.display = 'none'; document.getElementById('subscriberLinks').style.display = 'block';
-                document.getElementById('activeUserLabel').textContent = "بوابة المشتركين (عداد: " + localStorage.getItem('tamda_counter') + ")"; navigateTo('👤 فواتيري وطلباتي');
+                document.getElementById('activeUserLabel').textContent = "بوابة المشتركين (عداد: " + localStorage.getItem('tamda_counter') + ")"; 
+                if(document.getElementById('portalSubName')) document.getElementById('portalSubName').textContent = localStorage.getItem('tamda_subname') || '';
+                if(document.getElementById('portalSubCounter')) document.getElementById('portalSubCounter').textContent = localStorage.getItem('tamda_counter') || '';
+                navigateTo('👤 فواتيري وطلباتي');
             } else {
                 document.getElementById('adminLinks').style.display = 'block'; document.getElementById('subscriberLinks').style.display = 'none';
                 document.getElementById('activeUserLabel').textContent = "مرحباً: " + roleNames[role]; navigateTo('🏠 لوحة القيادة'); renderCapital();
@@ -166,7 +168,7 @@ function recalculateFinancials() {
     capitalLedger.forEach(c => { if(c.type === 'manual') manualCap += Number(c.amount || 0); });
     
     totalIncome = transIncome + totalDonationsIncome;
-    window.actualTotalCapital = totalIncome + manualCap - totalExpense; // المعادلة الشاملة للصندوق
+    window.actualTotalCapital = totalIncome + manualCap - totalExpense; 
 }
 
 function loadSettings() { let saved = JSON.parse(localStorage.getItem('tamda_settings')); if(saved) appSettings = Object.assign(appSettings, saved); }
@@ -190,6 +192,8 @@ async function loadDataFromCloud() {
         if(localStorage.getItem('tamda_auth') === 'true') {
             if(localStorage.getItem('tamda_role') !== 'subscriber') {
                 renderSubscribers(); renderTransactions(); renderCapital(); renderArchive(); renderDebts();
+            } else {
+                renderSubPortalBills();
             }
         }
     } catch (e) { console.error("Cloud fetch error:", e); }
@@ -205,9 +209,96 @@ function printThermalBill() {
 }
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
-/* --- المنخرطين والفواتير --- */
-async function saveSubscriber() { /* نفس الكود السابق */ }
-function renderSubscribers() { /* نفس الكود السابق */ }
+/* --- المنخرطين وإدارتهم بالكامل --- */
+async function saveSubscriber() {
+    const editingId = document.getElementById('editingSubId').value;
+    const counter = document.getElementById('newSubCounter').value.trim();
+    const name = document.getElementById('newSubName').value.trim();
+    const phone = document.getElementById('newSubPhone').value.trim();
+    const loc = document.getElementById('newSubLocation').value.trim();
+    if (!counter || !name) return showToast('المرجو إدخال رقم العداد والاسم');
+    
+    try {
+        if (editingId) {
+            let sub = subscribers.find(s => s.firestoreId === editingId);
+            if(sub) { sub.counter = counter; sub.name = name; sub.phone = phone; sub.location = loc; }
+            if (navigator.onLine) {
+                await updateDoc(doc(db, "subscribers", editingId), { counter, name, phone, location: loc });
+            }
+            showToast('تم تعديل بيانات المشترك بنجاح!');
+            resetSubForm();
+        } else {
+            if (subscribers.find(s => s.counter == counter)) return showToast('العداد مسجل مسبقاً!');
+            if (!navigator.onLine) return showToast('⚠️ يجب الاتصال بالإنترنت لإضافة مشترك');
+            
+            let newSub = { counter: counter, name: name, phone: phone, location: loc, lastReading: null, delayMonths: 0, debtAmount: 0, lastBilledMonth: '', avgConsumption: 15, pin: '' };
+            let docRef = await addDoc(collection(db, "subscribers"), newSub);
+            newSub.firestoreId = docRef.id;
+            
+            subscribers.push(newSub);
+            subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
+            
+            document.getElementById('newSubCounter').value = ''; document.getElementById('newSubName').value = ''; document.getElementById('newSubPhone').value = ''; document.getElementById('newSubLocation').value = ''; 
+            showToast('تم حفظ المشترك بنجاح');
+        }
+        saveLocalData(); renderSubscribers();
+    } catch (e) { console.error(e); showToast('❌ حدث خطأ أثناء الحفظ'); }
+}
+
+window.editSubscriber = function(firestoreId) {
+    const sub = subscribers.find(s => s.firestoreId === firestoreId); if (!sub) return;
+    document.getElementById('editingSubId').value = sub.firestoreId; document.getElementById('newSubCounter').value = sub.counter; document.getElementById('newSubName').value = sub.name; document.getElementById('newSubPhone').value = sub.phone || ''; document.getElementById('newSubLocation').value = sub.location || ''; document.getElementById('subFormTitle').textContent = '✏️ تعديل بيانات المشترك'; document.getElementById('subSaveBtn').textContent = '💾 تحديث البيانات'; document.getElementById('subCancelBtn').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.resetSubForm = function() {
+    document.getElementById('editingSubId').value = ''; document.getElementById('newSubCounter').value = ''; document.getElementById('newSubName').value = ''; document.getElementById('newSubPhone').value = ''; document.getElementById('newSubLocation').value = ''; document.getElementById('subFormTitle').textContent = '➕ إضافة مشترك جديد'; document.getElementById('subSaveBtn').textContent = '💾 حفظ المشترك'; document.getElementById('subCancelBtn').style.display = 'none';
+}
+
+window.deleteSubscriber = async function(id) { 
+    if(!id || id.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن أو فيه خلل، قم بتحديث الصفحة'); return; }
+    if(confirm('هل أنت متأكد من حذف المشترك نهائياً؟')) { 
+        try { 
+            await deleteDoc(doc(db, "subscribers", id)); 
+            subscribers = subscribers.filter(s => s.firestoreId !== id); 
+            saveLocalData(); 
+            renderSubscribers(); showToast('تم الحذف بنجاح'); 
+        } catch(e){ console.error(e); showToast('❌ فشل الحذف'); }
+    } 
+}
+
+window.generateAndSendPIN = async function(firestoreId) {
+    let sub = subscribers.find(s => s.firestoreId === firestoreId); if (!sub) return;
+    if (!sub.phone) return showToast('رقم هاتف المنخرط غير مسجل!');
+    let pin = Math.floor(1000 + Math.random() * 9000).toString(); sub.pin = pin; saveLocalData();
+    if(navigator.onLine) await updateDoc(doc(db, "subscribers", firestoreId), { pin: pin }).catch(()=>{});
+    let msg = `مرحباً السيد(ة) ${sub.name}،\nتم تفعيل حسابك في بوابة المشتركين لتطبيق تسيير ماء تامدة.\n\n👤 اسم المستخدم (رقم العداد): ${sub.counter}\n🔑 الرمز السري: ${pin}`;
+    window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank'); showToast('تم توليد الكود وفتح واتساب'); renderSubscribers();
+}
+
+function renderSubscribers() {
+    const container = document.getElementById('subscribersListContainer'); if(!container) return;
+    const searchTerm = document.getElementById('searchSub').value.toLowerCase(); container.innerHTML = '';
+    let filtered = subscribers.filter(s => s.name.toLowerCase().includes(searchTerm) || s.counter.toString().includes(searchTerm));
+    document.getElementById('subListCount').textContent = filtered.length; if(document.getElementById('dashSubCount')) document.getElementById('dashSubCount').textContent = subscribers.length;
+    let totalDebts = 0; subscribers.forEach(s => totalDebts += Number(s.debtAmount || 0)); if(document.getElementById('dashDebts')) document.getElementById('dashDebts').textContent = totalDebts + ' درهم';
+    filtered.forEach((sub) => {
+        const div = document.createElement('div'); div.className = 'list-item'; div.style.flexDirection = 'column'; div.style.alignItems = 'stretch';
+        let pinBtnText = sub.pin ? "🔄 إعادة إرسال الكود للمشترك" : "🔑 توليد وإرسال كود الدخول";
+        div.innerHTML = `
+            <div class="list-info" style="text-align: right; width: 100%; margin-bottom: 10px;">
+                <strong>عداد (${sub.counter}): ${sub.name}</strong>
+                <span>الهاتف: ${sub.phone || 'غير مسجل'} | الموقع: ${sub.location || 'غير محدد'}</span>
+                <span class="${(sub.debtAmount > 0) ? 'text-danger' : 'text-success'}">ديون: ${sub.debtAmount || 0} درهم (تأخير: ${sub.delayMonths || 0} أشهر)</span>
+                <span>حالة البوابة: ${sub.pin ? '<strong style="color:var(--accent-green);">✔️ مفعل</strong>' : '<strong style="color:var(--danger-red);">❌ غير مفعل</strong>'}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; width: 100%;">
+                <div style="display:flex; gap:8px;"><button class="edit-btn" style="flex:1;" onclick="editSubscriber('${sub.firestoreId}')">✏️ تعديل</button><button class="action-btn" style="flex:1;" onclick="deleteSubscriber('${sub.firestoreId}')">🗑️ حذف</button></div>
+                <button class="btn btn-outline" style="padding:8px; margin:0;" onclick="generateAndSendPIN('${sub.firestoreId}')">${pinBtnText}</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
 
 function autoFillSubscriber() { 
     const counterInput = document.getElementById('counterNum').value.trim(); 
@@ -228,10 +319,9 @@ function autoFillSubscriber() {
         document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('currReading').value = ''; 
         document.getElementById('counterHistoryCard').style.display = 'none';
     } 
-    document.getElementById('currReading').value = ''; window.autoAdjustTariff(); calculateBill(); 
+    document.getElementById('currReading').value = ''; window.autoAdjustTariff(); 
 }
 
-// عرض وإمكانية تعديل فواتير العداد المحدد
 window.renderCounterBills = function(counter) {
     const container = document.getElementById('counterBillsList');
     let bills = archiveBills.filter(b => b.counter == counter).sort((a,b) => b.month.localeCompare(a.month));
@@ -249,7 +339,7 @@ window.editBill = async function(id) {
     let bill = archiveBills.find(b => b.firestoreId === id); if(!bill) return;
     if(!confirm('سيتم حذف الفاتورة الخاطئة لإعادة إدخالها مصححة. هل توافق؟')) return;
     
-    await deleteArchiveBill(id, true); // True = الحذف صامتاً بدون تنبيه
+    await deleteArchiveBill(id, true);
     
     document.getElementById('billingMonth').value = bill.month;
     document.getElementById('prevReading').value = bill.prevReading || (bill.currReading - bill.consumption) || 0;
@@ -257,24 +347,35 @@ window.editBill = async function(id) {
     document.getElementById('delayMonths').value = 0;
     document.getElementById('exemptionCheck').checked = bill.isExempt || false;
     
-    window.autoAdjustTariff(); calculateBill();
-    showToast('تم إلغاء الفاتورة.. أدخل البيانات الصحيحة واضغط حفظ من جديد.');
+    window.autoAdjustTariff();
+    showToast('تم إلغاء الفاتورة.. أدخل البيانات الصحيحة واضغط حساب ثم حفظ من جديد.');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function getNextMonth(monthString) { let parts = monthString.split('-'); let d = new Date(parseInt(parts[0]), parseInt(parts[1]), 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 
-function calculateBill() { /* نفس كود الحساب */
+function calculateBill() { 
     const counterNumInput = document.getElementById('counterNum').value.trim(); 
     const prev = parseFloat(document.getElementById('prevReading').value) || 0; 
     const curr = parseFloat(document.getElementById('currReading').value) || 0; 
     const delayMonths = parseInt(document.getElementById('delayMonths').value) || 0; 
     const tariffSystem = document.getElementById('tariffSystem').value; 
     const isExempt = document.getElementById('exemptionCheck').checked; 
+    const billingMonth = document.getElementById('billingMonth').value;
     
-    if (!counterNumInput) return; 
+    if (!counterNumInput || !billingMonth) return; 
+    
+    // --- جدار الحماية: منع تكرار فوترة نفس الشهر لنفس العداد ---
+    let isAlreadyBilled = archiveBills.some(b => b.counter == counterNumInput && b.month === billingMonth);
+    if (isAlreadyBilled) {
+        document.getElementById('billResult').style.display = 'none';
+        return showToast('❌ تحذير: هذا الشهر تم فوترته مسبقاً لهذا العداد!');
+    }
+    // -------------------------------------------------------------
+
+    if (curr < prev) return showToast('القراءة الحالية أقل من السابقة!');
+
     const consumption = curr - prev; currentConsumptionData = consumption; 
-    
     currentT1 = 0; currentT2 = 0; currentT3 = 0; let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = (tariffSystem === 'old') ? 15 : appSettings.maintenance;
     
     if (tariffSystem === 'old') { 
@@ -288,7 +389,13 @@ function calculateBill() { /* نفس كود الحساب */
     const consumptionCost = t1_cost + t2_cost + t3_cost; let penaltyCost = (delayMonths >= 2) ? appSettings.penalty : 0; 
     currentBillTotal = isExempt ? 0 : (consumptionCost + maintenance + penaltyCost); 
     
-    document.getElementById('printMonth').textContent = document.getElementById('billingMonth').value; document.getElementById('printName').textContent = document.getElementById('subscriberName').value; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance; document.getElementById('consumptionResult').textContent = consumption; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم';
+    document.getElementById('row-t1').style.display = currentT1 > 0 ? 'flex' : 'none'; document.getElementById('t1-val').textContent = `${currentT1} m³ = ${t1_cost} درهم`; 
+    document.getElementById('row-t2').style.display = currentT2 > 0 ? 'flex' : 'none'; document.getElementById('t2-val').textContent = `${currentT2} m³ = ${t2_cost} درهم`; 
+    document.getElementById('row-t3').style.display = currentT3 > 0 ? 'flex' : 'none'; document.getElementById('t3-val').textContent = `${currentT3} m³ = ${t3_cost} درهم`; 
+    if (penaltyCost > 0) { document.getElementById('penaltyRow').style.display = 'flex'; document.getElementById('printPenalty').textContent = penaltyCost + ' درهم'; } 
+    else { document.getElementById('penaltyRow').style.display = 'none'; } 
+
+    document.getElementById('printMonth').textContent = billingMonth; document.getElementById('printName').textContent = document.getElementById('subscriberName').value; document.getElementById('printCounter').textContent = counterNumInput; document.getElementById('printPrev').textContent = prev; document.getElementById('printCurr').textContent = curr; document.getElementById('printMaintenance').textContent = maintenance + ' درهم'; document.getElementById('consumptionResult').textContent = consumption + ' m³'; document.getElementById('totalPriceResult').textContent = currentBillTotal + ' درهم';
     document.getElementById('billResult').style.display = 'block'; 
 }
 
@@ -297,6 +404,13 @@ async function saveBill(isPaid) {
         if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت');
         const counterInput = document.getElementById('counterNum').value.trim(); const curr = parseFloat(document.getElementById('currReading').value) || 0; const prev = parseFloat(document.getElementById('prevReading').value) || 0; const currentMonth = document.getElementById('billingMonth').value; const isExempt = document.getElementById('exemptionCheck').checked; const sub = subscribers.find(s => s.counter == counterInput); 
         
+        // --- جدار الحماية النهائي قبل الحفظ ---
+        let isAlreadyBilled = archiveBills.some(b => b.counter == counterInput && b.month === currentMonth);
+        if (isAlreadyBilled) {
+            return showToast('❌ خطأ: تم حفظ فاتورة هذا الشهر مسبقاً!');
+        }
+        // --------------------------------------
+
         let billArchiveObj = { month: currentMonth, counter: counterInput, name: document.getElementById('subscriberName').value, prevReading: prev, currReading: curr, consumption: currentConsumptionData, total: currentBillTotal, status: isPaid ? 'خالصة' : 'دين', isExempt: isExempt, timestamp: new Date().toISOString() }; 
         
         try { 
@@ -343,7 +457,16 @@ window.deleteArchiveBill = async function(id, isEdit = false) {
     } catch(e){ console.error(e); }
 }
 
-/* --- سجل العمليات (معدل ليعرض ملخصاً شهرياً فقط) --- */
+window.sendWhatsAppNotification = function() {
+    const counterInput = document.getElementById('counterNum').value.trim();
+    const sub = subscribers.find(s => s.counter == counterInput);
+    if (!sub || !sub.phone) return showToast('رقم هاتف المنخرط غير مسجل!');
+    const currentMonth = document.getElementById('billingMonth').value;
+    let msg = `فاتورة ماء تامدة لشهر: ${currentMonth}\n\n👤 المشترك: ${sub.name}\n🔢 رقم العداد: ${sub.counter}\n💧 الاستهلاك: ${currentConsumptionData} m³\n💰 المبلغ الإجمالي: ${currentBillTotal} درهم\n\nالمرجو الأداء وشكراً.`;
+    window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/* --- سجل العمليات --- */
 function renderTransactions() {
     const container = document.getElementById('transactionsListContainer'); if(!container) return; 
     let months = {};
@@ -371,7 +494,22 @@ function renderTransactions() {
     html += `</tbody></table>`; container.innerHTML = html;
 }
 
-/* --- تقارير الصندوق (معدل لعرض الرصيد والمداخيل الشهرية) --- */
+async function saveTransaction() { 
+    const month = document.getElementById('transMonth').value; const type = document.getElementById('transType').value; 
+    const amount = parseFloat(document.getElementById('transAmount').value) || 0; const desc = document.getElementById('transDesc').value.trim(); 
+    if (amount <= 0 || !month) return showToast('أدخل البيانات كاملة'); 
+    if (!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت لحفظ المعاملة');
+    
+    let transactionObj = { month, type, amount, desc, fileName: '', timestamp: new Date().toISOString() }; 
+    try {
+        let docRef = await addDoc(collection(db, "transactions"), transactionObj); transactionObj.firestoreId = docRef.id; await addDoc(collection(db, "archive_finance"), transactionObj); 
+        transactionsList.push(transactionObj); archiveFinance.push(transactionObj); 
+        recalculateFinancials(); saveLocalData(); 
+        document.getElementById('transAmount').value = ''; document.getElementById('transDesc').value = ''; showToast('تم تسجيل العملية المالية بنجاح'); renderTransactions(); renderCapital();
+    } catch(e) { console.error(e); showToast('❌ حدث خطأ في الحفظ'); }
+}
+
+/* --- تقارير الصندوق --- */
 window.addManualCapital = async function() {
     let amtStr = prompt("أدخل المبلغ المراد إضافته يدوياً للصندوق:"); if(!amtStr) return;
     let amount = parseFloat(amtStr); if(isNaN(amount) || amount <= 0) return;
@@ -388,10 +526,8 @@ function renderCapital() {
     const monthlyContainer = document.getElementById('monthlyIncomeContainer');
     if(!container) return;
     
-    // 1. عرض الرصيد الإجمالي
     document.getElementById('mainCapitalAmount').textContent = window.actualTotalCapital + " درهم";
 
-    // 2. عرض الإضافات اليدوية
     container.innerHTML = '';
     let manuals = capitalLedger.filter(c => c.type === 'manual').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     manuals.forEach(item => {
@@ -399,7 +535,6 @@ function renderCapital() {
     });
     if(manuals.length === 0) container.innerHTML = '<p class="text-success">لا توجد إضافات يدوية مسجلة.</p>';
 
-    // 3. جدول المداخيل والمصاريف لكل شهر
     if(monthlyContainer) {
         let months = {};
         transactionsList.forEach(t => {
@@ -476,4 +611,104 @@ window.deleteArchiveFinance = async function(id) {
     } 
 }
 
-window.checkAuth = checkAuth; window.handleEnter = handleEnter; window.authenticate = authenticate; window.logout = logout; window.toggleSidebar = toggleSidebar; window.showToast = showToast; window.navigateTo = navigateTo; window.printDonations = printDonations; window.printThermalBill = printThermalBill; window.saveSubscriber = saveSubscriber; window.autoFillSubscriber = autoFillSubscriber; window.calculateBill = calculateBill; window.saveBill = saveBill; window.saveTransaction = saveTransaction; window.saveSettings = saveSettings; window.saveDonation = saveDonation;
+/* --- سجل التبرعات والديون --- */
+async function saveDonation() { 
+    const month = document.getElementById('donationMonth').value; const name = document.getElementById('donationName').value.trim(); const amount = parseFloat(document.getElementById('donationAmount').value) || 0; 
+    if (amount <= 0 || !month || !name) return showToast('أدخل البيانات كاملة'); 
+    let donObj = { month, name, amount, timestamp: new Date().toISOString() }; 
+    try {
+        let docRef = await addDoc(collection(db, "donations"), donObj); donObj.firestoreId = docRef.id; donationsList.push(donObj); 
+        recalculateFinancials(); saveLocalData(); document.getElementById('donationName').value = ''; document.getElementById('donationAmount').value = ''; showToast('تم تسجيل التبرع'); renderDonations(); renderTransactions(); renderCapital();
+    } catch (e) { showToast('❌ حدث خطأ'); }
+}
+
+function renderDonations() { 
+    const container = document.getElementById('donationsListContainer'); if(!container) return; container.innerHTML = ''; 
+    if(donationsList.length === 0) return container.innerHTML = '<p class="text-success">لا توجد تبرعات مسجلة حتى الآن.</p>'; 
+    let html = `<table class="archive-table"><thead><tr><th>الشهر</th><th>اسم المحسن(ة)</th><th>المبلغ</th><th class="no-print">حذف</th></tr></thead><tbody>`; 
+    donationsList.slice().reverse().forEach((d) => { 
+        html += `<tr><td>${d.month}</td><td>${d.name}</td><td class="text-success">+ ${d.amount} درهم</td><td class="no-print"><button class="action-btn" onclick="deleteDonation('${d.firestoreId}')">حذف</button></td></tr>`; 
+    }); 
+    html += `</tbody></table>`; container.innerHTML = html; 
+}
+
+window.deleteDonation = async function(id) { 
+    if(confirm('متأكد من حذف التبرع؟')) { 
+        await deleteDoc(doc(db, "donations", id)); donationsList = donationsList.filter(d => d.firestoreId !== id); 
+        recalculateFinancials(); saveLocalData(); renderDonations(); renderTransactions(); renderCapital(); showToast('تم الحذف بنجاح');
+    } 
+}
+
+function renderDebts() {
+    const container = document.getElementById('debtsListContainer'); if(!container) return; container.innerHTML = ''; 
+    const debtors = subscribers.filter(s => Number(s.debtAmount) > 0).sort((a, b) => Number(a.counter) - Number(b.counter)); 
+    if(debtors.length === 0) return container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً.</p>'; 
+    debtors.forEach((sub) => { 
+        const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = 'var(--danger-red)'; 
+        div.innerHTML = `<div class="list-info"><strong style="color:var(--danger-red);">عداد (${sub.counter}): ${sub.name}</strong><span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span></div><div><button class="pay-btn" onclick="collectDebt('${sub.firestoreId}', ${sub.debtAmount}, '${sub.counter}')">💵 استخلاص</button></div>`; 
+        container.appendChild(div); 
+    });
+}
+
+window.collectDebt = async function(firestoreId, amount, counter) { 
+    if(confirm(`تأكيد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
+        try {
+            let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
+            let nowMonth = new Date().toISOString().slice(0, 7); 
+            let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, timestamp: new Date().toISOString() }; 
+            let transRef = await addDoc(collection(db, "transactions"), newTrans); newTrans.firestoreId = transRef.id;
+            
+            let unpaidBills = archiveBills.filter(b => b.counter == counter && b.status === 'دين');
+            for (let b of unpaidBills) {
+                b.status = 'خالصة';
+                if(b.firestoreId) await updateDoc(doc(db, "archive_bills", b.firestoreId), { status: 'خالصة' });
+            }
+
+            await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
+            transactionsList.push(newTrans); recalculateFinancials(); saveLocalData(); 
+            showToast('تم الاستخلاص بنجاح!'); renderDebts(); renderTransactions(); renderCapital(); renderArchive();
+        } catch(e) { showToast('❌ فشل الاستخلاص'); }
+    } 
+}
+
+/* --- الصفحات الإضافية والأساسية المتبقية لضمان عدم حدوث أخطاء --- */
+function renderAdminComplaints() {
+    const container = document.getElementById('complaintsListContainer'); if(!container) return;
+    container.innerHTML = '<p class="text-success">لا توجد شكايات مسجلة حالياً.</p>';
+}
+
+function renderSubPortalBills() {
+    const container = document.getElementById('portalBillsContainer'); if(!container) return;
+    const subCounter = localStorage.getItem('tamda_counter');
+    if(!subCounter) return;
+    let bills = archiveBills.filter(b => b.counter == subCounter).sort((a,b) => b.month.localeCompare(a.month));
+    if(bills.length === 0) { container.innerHTML = '<p>لا توجد فواتير مسجلة بعد.</p>'; return; }
+    
+    let html = `<div style="overflow-x:auto;"><table class="archive-table"><thead><tr><th>الشهر</th><th>الاستهلاك</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>`;
+    bills.forEach(b => {
+        let statusColor = b.status.includes('خالصة') ? 'var(--accent-green)' : 'var(--danger-red)';
+        html += `<tr><td>${b.month}</td><td>${b.consumption} m³</td><td>${b.total} درهم</td><td style="color:${statusColor}; font-weight:bold;">${b.status}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+}
+
+window.saveBylaws = function() {
+    const text = document.getElementById('bylawInput').value;
+    localStorage.setItem('tamda_bylaws', text);
+    showToast('تم حفظ القانون الأساسي بنجاح');
+}
+
+window.toggleStatInputs = function() {
+    const type = document.getElementById('statTypeSelect').value;
+    document.getElementById('monthInputGroup').style.display = type === 'monthly' ? 'block' : 'none';
+    document.getElementById('yearInputGroup').style.display = type === 'yearly' ? 'block' : 'none';
+    renderAdvancedStats();
+}
+
+window.renderAdvancedStats = function() {
+    const container = document.getElementById('statsContainer'); if(!container) return;
+    container.innerHTML = '<p style="color:#666;">سيتم عرض الإحصائيات بناءً على الشهر أو السنة المحددة قريباً...</p>';
+}
+
+window.checkAuth = checkAuth; window.handleEnter = handleEnter; window.authenticate = authenticate; window.logout = logout; window.toggleSidebar = toggleSidebar; window.showToast = showToast; window.navigateTo = navigateTo; window.printDonations = printDonations; window.printThermalBill = printThermalBill; window.saveSubscriber = saveSubscriber; window.autoFillSubscriber = autoFillSubscriber; window.calculateBill = calculateBill; window.saveBill = saveBill; window.saveTransaction = saveTransaction; window.saveSettings = saveSettings; window.saveDonation = saveDonation; window.sendWhatsAppNotification = sendWhatsAppNotification;
