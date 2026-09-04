@@ -12,23 +12,17 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
 body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: hidden; }
 
-/* Toast Notification */
-#toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 9999; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s, bottom 0.3s; }
+#toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 9999; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); opacity: 0; transition: 0.3s; }
 #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-
-/* Connection Status */
 #connectionStatus { position: fixed; top: 0; left: 0; right: 0; text-align: center; color: white; font-weight: bold; padding: 5px; z-index: 10000; font-size: 0.85rem; }
 
-/* Login Screen */
 #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; padding: 20px; }
 .login-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
 .login-box h2 { color: var(--primary-blue); margin-bottom: 20px; font-weight: 800; }
 .login-box select, .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
 .login-box button { width: 100%; padding: 12px; background: var(--accent-green); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
-.login-box button:hover { background: #1ebd58; }
 #loginError { color: var(--danger-red); margin-bottom: 15px; display: none; font-weight: bold; }
 
-/* Sidebar & Overlay */
 #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
 #overlay.active { display: block; }
 #sidebar { position: fixed; top: 0; right: -280px; width: 280px; height: 100vh; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1); z-index: 100; transition: right 0.3s ease; overflow-y: auto; padding-bottom: 20px; }
@@ -38,13 +32,11 @@ body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: h
 .menu-item { display: block; padding: 15px 20px; color: var(--text-dark); text-decoration: none; border-bottom: 1px solid #eee; font-weight: 500; cursor: pointer; transition: 0.2s; }
 .menu-item:hover { background: #f0f8ff; color: var(--primary-blue); padding-right: 25px; }
 
-/* App Layout */
 #appContent { display: none; padding-top: 50px; }
 .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; margin-top: 20px; }
 .menu-btn { font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--primary-blue); }
 .main-container { padding: 0 15px 30px 15px; max-width: 1000px; margin: 0 auto; }
 
-/* Cards & Forms */
 .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); }
 .card-title { color: var(--primary-blue); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
 .form-group { margin-bottom: 15px; }
@@ -52,92 +44,58 @@ body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: h
 .form-input, .form-select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; transition: 0.3s; }
 .form-input:focus, .form-select:focus { border-color: var(--primary-blue); outline: none; }
 
-/* Buttons */
 .btn { padding: 10px 15px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .btn-green { background: var(--accent-green); width: 100%; margin-top: 10px; }
-.btn-green:hover { background: #1ebd58; }
 .btn-blue { background: var(--primary-blue); }
 .btn-outline { background: transparent; border: 2px solid var(--primary-blue); color: var(--primary-blue); }
-.btn-danger { background: var(--danger-red); }
+.btn-danger { background: var(--danger-red); width: 100%; margin-top: 10px; }
 
-/* Lists */
 .list-item { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border-right: 4px solid var(--primary-blue); }
 .list-info { display: flex; flex-direction: column; gap: 5px; }
 .list-info strong { font-size: 1.1rem; }
 .list-info span { font-size: 0.85rem; color: #666; }
 
-/* Utility Buttons */
 .action-btn { background: #ffebee; color: var(--danger-red); border: 1px solid #ffcdd2; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
 .edit-btn { background: #e3f2fd; color: var(--primary-blue); border: 1px solid #bbdefb; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
 .pay-btn { background: #e8f5e9; color: var(--accent-green); border: 1px solid #c8e6c9; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; margin-top: 5px;}
 
-/* Dashboard Stats Grid */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
-.stat-card { background: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: var(--card-shadow); border-bottom: 3px solid var(--primary-blue); }
-.stat-card h3 { font-size: 1.5rem; color: var(--primary-blue); margin-bottom: 5px; }
-.stat-card p { font-size: 0.9rem; color: #666; }
-
-/* Bar Charts */
-.chart-container { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-top: 15px; }
-.chart-bar-wrap { margin-bottom: 12px; }
-.chart-bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-.chart-bar-bg { width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden; }
-.chart-bar-fill { height: 100%; border-radius: 5px; }
-
-/* Alert Boxes */
 .alert-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: 600; display: none; }
 .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.stat-card { background: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: var(--card-shadow); border-bottom: 3px solid var(--primary-blue); }
 
-/* ------------------- إعدادات الطباعة ------------------- */
+.archive-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; }
+.archive-table th, .archive-table td { border: 1px solid #ddd; padding: 8px 12px; text-align: right; }
+.archive-table th { background-color: var(--bg-light); color: var(--primary-blue); }
+.text-danger { color: var(--danger-red); font-weight: bold; }
+.text-success { color: var(--accent-green); font-weight: bold; }
+
 @media print {
-    /* إخفاء العناصر غير المرغوبة في الطباعة العادية */
     #sidebar, #overlay, .header, .menu-btn, .no-print, .btn, .card-title, #connectionStatus, .toast { display: none !important; }
     #appContent { padding-top: 0 !important; }
     
-    /* للطباعة العادية الخاصة بالتبرعات والأرشيف */
     body.print-mode-donations #view-donations, body.print-mode-donations #view-donations * { visibility: visible; }
-    body.print-mode-donations #view-donations { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
+    body.print-mode-donations #view-donations { position: absolute; left: 0; top: 0; width: 100%; }
     
     body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-archive, body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-archive * { visibility: visible; }
     body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-reports, body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-reports * { visibility: visible; }
-    body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-archive { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
+    body:not(.print-mode-donations):not(.print-mode-thermal-direct) #view-archive { position: absolute; left: 0; top: 0; width: 100%; }
     
-    /* ---------------------------------------------------- */
-    /* إعدادات طابعة التوصيل الحرارية (المربع الأحمر فقط) */
-    /* ---------------------------------------------------- */
-    @page { 
-        margin: 0; 
-        size: 58mm auto; 
-    }
+    /* تنسيق احترافي لجداول الطباعة */
+    .archive-table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 20px !important; font-size: 13px !important; text-align: center !important; }
+    .archive-table th, .archive-table td { border: 1px solid #000 !important; padding: 10px !important; text-align: center !important; color: #000 !important; }
+    .archive-table th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact !important; font-weight: bold !important; font-size: 14px !important; }
+    .archive-table tr:nth-child(even) { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact !important; }
+    
+    .printable-archive h4 { background: #1b6393 !important; color: #fff !important; padding: 10px !important; -webkit-print-color-adjust: exact !important; border-radius: 4px !important; text-align: center; margin-bottom: 15px;}
 
-    /* إخفاء كل العناصر الموجودة في الصفحة الأصلية تماماً */
-    body.print-mode-thermal-direct > * {
-        display: none !important;
-    }
-
-    /* إظهار الحاوية المؤقتة التي أنشأناها في الجافاسكريبت فقط */
+    /* طباعة الفاتورة الحرارية */
+    @page { margin: 0; size: 58mm auto; }
+    body.print-mode-thermal-direct > * { display: none !important; }
     body.print-mode-thermal-direct > #temp-print-container {
-        display: block !important;
-        width: 58mm !important;
-        padding: 3mm !important;
-        margin: 0 !important;
-        background: white !important;
-        color: black !important;
-        border: 1px dashed #000 !important; 
-        box-shadow: none !important;
-        border-radius: 0 !important;
+        display: block !important; width: 58mm !important; padding: 3mm !important; margin: 0 !important;
+        background: white !important; color: black !important; border: 1px dashed #000 !important; 
     }
-
-    /* تصغير الخطوط داخل الفاتورة لتناسب 58mm */
-    body.print-mode-thermal-direct #temp-print-container * {
-        font-size: 11px !important;
-        line-height: 1.5 !important;
-    }
-
-    /* إخفاء أي أزرار أو عناصر لا يجب طباعتها داخل المربع الأحمر */
-    body.print-mode-thermal-direct #temp-print-container .no-print,
-    body.print-mode-thermal-direct #temp-print-container .btn,
-    body.print-mode-thermal-direct #temp-print-container button {
-        display: none !important;
-    }
+    body.print-mode-thermal-direct #temp-print-container * { font-size: 11px !important; line-height: 1.5 !important; }
+    body.print-mode-thermal-direct #temp-print-container .no-print, body.print-mode-thermal-direct #temp-print-container .btn { display: none !important; }
 }
