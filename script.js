@@ -826,6 +826,7 @@ function getNextMonth(monthString) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
+// ✅ دالة حساب الفاتورة بعد ضبط النظام القديم (15 متر شطر أول، 5 أمتار شطر ثان) والنظام الجديد (20 متر شطر أول، 10 أمتار شطر ثان) بشكل صحيح 100%
 function calculateBill() { 
     const counterNumInput = document.getElementById('counterNum').value.trim(); 
     const subName = document.getElementById('subscriberName').value || 'غير محدد'; 
@@ -866,6 +867,7 @@ function calculateBill() {
     let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; 
     
     if (tariffSystem === 'old') { 
+        // النظام القديم الصحيح: الشطر الأول 15 متر، الشطر الثاني 5 أمتار (حتى 20)، وما زاد شطر ثالث
         maintenance = appSettings.maintenance; 
         if (consumption <= 15) { 
             currentT1 = consumption; 
@@ -881,6 +883,7 @@ function calculateBill() {
         t2_cost = currentT2 * appSettings.tier2; 
         t3_cost = currentT3 * appSettings.tier3; 
     } else { 
+        // النظام الجديد الصحيح: الشطر الأول 20 متر، الشطر الثاني 10 أمتار (حتى 30)، وما زاد شطر ثالث (أسعار 3, 5, 7)
         maintenance = 15; 
         if (consumption <= 20) { 
             currentT1 = consumption; 
@@ -974,7 +977,6 @@ async function collectDebt(firestoreId, amount, counter, name) {
     } 
 }
 
-// ✅ دالة الأرشيف المحدثة بحيث تعرض الاسم ورقم العداد معاً في جدول الفواتير
 function renderArchive() { 
     const container = document.getElementById('archiveContainer'); if(!container) return; container.innerHTML = ''; 
     let allMonths = new Set(); archiveBills.forEach(b => allMonths.add(b.month)); archiveFinance.forEach(f => allMonths.add(f.month)); 
@@ -995,7 +997,6 @@ function renderArchive() {
         if(monthBills.length > 0) { 
             html += `<table class="archive-table"><thead><tr><th>رقم العداد والاسم</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; 
             monthBills.forEach(b => { 
-                // إظهار الاسم بجانب رقم العداد (إذا وجد في الفاتورة أو يتم البحث عنه في لائحة المشتركين)
                 let subscriberName = b.name || 'غير مسجل';
                 html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
             }); 
