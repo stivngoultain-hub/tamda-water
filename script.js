@@ -699,7 +699,6 @@ async function saveBylaws() {
     } else { localStorage.setItem('tamda_bylaws', text); showToast('⚠️ تم الحفظ محلياً في هاتفك فقط لانعدام الإنترنت'); }
 }
 
-// ✅ التخزين المباشر في قاعدة البيانات المجانية (Firestore) لتفادي مشكلة Storage والبطاقة البنكية
 async function uploadFinancialPDF() {
     const fileInput = document.getElementById('pdfReportFile');
     const titleInput = document.getElementById('pdfReportTitle');
@@ -868,16 +867,34 @@ function calculateBill() {
     
     if (tariffSystem === 'old') { 
         maintenance = appSettings.maintenance; 
-        if (consumption <= 15) { currentT1 = consumption; } 
-        else if (consumption <= 20) { currentT1 = 15; currentT2 = consumption - 15; } 
-        else { currentT1 = 15; currentT2 = 5; currentT3 = consumption - 20; } 
-        t1_cost = currentT1 * appSettings.tier1; t2_cost = currentT2 * appSettings.tier2; t3_cost = currentT3 * appSettings.tier3; 
+        if (consumption <= 15) { 
+            currentT1 = consumption; 
+        } else if (consumption <= 20) { 
+            currentT1 = 15; 
+            currentT2 = consumption - 15; 
+        } else { 
+            currentT1 = 15; 
+            currentT2 = 5; 
+            currentT3 = consumption - 20; 
+        } 
+        t1_cost = currentT1 * appSettings.tier1; 
+        t2_cost = currentT2 * appSettings.tier2; 
+        t3_cost = currentT3 * appSettings.tier3; 
     } else { 
         maintenance = 15; 
-        if (consumption <= 20) { currentT1 = consumption; } 
-        else if (consumption <= 30) { currentT1 = 20; currentT2 = consumption - 20; } 
-        else { currentT1 = 20; currentT2 = 10; currentT3 = consumption - 30; } 
-        t1_cost = currentT1 * 3; t2_cost = currentT2 * 5; t3_cost = currentT3 * 7; 
+        if (consumption <= 20) { 
+            currentT1 = consumption; 
+        } else if (consumption <= 30) { 
+            currentT1 = 20; 
+            currentT2 = consumption - 20; 
+        } else { 
+            currentT1 = 20; 
+            currentT2 = 10; 
+            currentT3 = consumption - 30; 
+        } 
+        t1_cost = currentT1 * 3; 
+        t2_cost = currentT2 * 5; 
+        t3_cost = currentT3 * 7; 
     } 
     
     const consumptionCost = t1_cost + t2_cost + t3_cost; 
@@ -957,21 +974,42 @@ async function collectDebt(firestoreId, amount, counter, name) {
     } 
 }
 
+// ✅ دالة الأرشيف المحدثة بحيث تعرض الاسم ورقم العداد معاً في جدول الفواتير
 function renderArchive() { 
     const container = document.getElementById('archiveContainer'); if(!container) return; container.innerHTML = ''; 
     let allMonths = new Set(); archiveBills.forEach(b => allMonths.add(b.month)); archiveFinance.forEach(f => allMonths.add(f.month)); 
     let sortedMonths = Array.from(allMonths).sort().reverse(); 
     if(sortedMonths.length === 0) return container.innerHTML = '<p>لا توجد بيانات مسجلة.</p>';
+    
     sortedMonths.forEach(month => { 
-        let monthBills = archiveBills.filter(b => b.month === month); let monthFinance = archiveFinance.filter(f => f.month === month); 
+        let monthBills = archiveBills.filter(b => b.month === month); 
+        let monthFinance = archiveFinance.filter(f => f.month === month); 
         monthBills.sort((a, b) => Number(a.counter) - Number(b.counter)); 
+        
         let monthTotalWater = 0, monthTotalAmount = 0; 
         monthBills.forEach(b => { monthTotalWater += Number(b.consumption || 0); monthTotalAmount += Number(b.total || 0); }); 
+        
         const box = document.createElement('div'); box.className = 'archive-month-box'; 
         let html = `<div class="printable-archive"><h4 style="margin-top:0; color:var(--primary-blue); border-bottom:2px solid var(--secondary-cyan); padding-bottom:8px;"><span>📅 الأرشيف الشامل - شهر: ${month}</span></h4><div style="display:flex; gap:20px; margin-bottom:10px; font-size:0.95rem; background:var(--bg-light); padding:8px; border-radius:6px;"><span>الاستهلاك: <strong>${monthTotalWater} m³</strong></span><span>المبالغ المحصلة: <strong class="text-success">${monthTotalAmount} درهم</strong></span></div>`; 
-        if(monthBills.length > 0) { html += `<table class="archive-table"><thead><tr><th>رقم العداد</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthBills.forEach(b => { html += `<tr><td>${b.counter}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } 
+        
+        if(monthBills.length > 0) { 
+            html += `<table class="archive-table"><thead><tr><th>رقم العداد والاسم</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; 
+            monthBills.forEach(b => { 
+                // إظهار الاسم بجانب رقم العداد (إذا وجد في الفاتورة أو يتم البحث عنه في لائحة المشتركين)
+                let subscriberName = b.name || 'غير مسجل';
+                html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
+            }); 
+            html += `</tbody></table>`; 
+        } 
+        
         html += `<h5 style="margin: 15px 0 5px 0; color:var(--text-dark);">💰 العمليات المالية:</h5>`; 
-        if(monthFinance.length > 0) { html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; monthFinance.forEach(f => { html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; }); html += `</tbody></table>`; } 
+        if(monthFinance.length > 0) { 
+            html += `<table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ (درهم)</th><th>الوصف</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; 
+            monthFinance.forEach(f => { 
+                html += `<tr><td class="${f.type === 'income' ? 'text-success' : 'text-danger'}">${f.type === 'income' ? 'مدخول' : 'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; 
+            }); 
+            html += `</tbody></table>`; 
+        } 
         html += `</div>`; box.innerHTML = html; container.appendChild(box); 
     }); 
 }
