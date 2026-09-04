@@ -40,7 +40,7 @@
             <a class="menu-item" onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
             <a class="menu-item" onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
             <a class="menu-item" onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
-            <a class="menu-item" onclick="navigateTo('💰 المداخيل والمصاريف')">💰 ملخص العمليات الشهرية</a>
+            <a class="menu-item" onclick="navigateTo('💰 ملخص العمليات الشهرية')">💰 ملخص العمليات الشهرية</a>
             <a class="menu-item" onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
             <a class="menu-item" onclick="navigateTo('💖 سجل التبرعات')">💖 سجل التبرعات</a>
             <a class="menu-item" onclick="navigateTo('📊 التقارير المالية')">📊 تقارير الصندوق</a>
@@ -142,7 +142,6 @@
                     <div id="smartAlertBox" class="alert-box alert-warning"></div>
                     <button class="btn btn-blue" style="width:100%; margin-bottom:15px;" onclick="calculateBill()">🧮 حساب الفاتورة</button>
 
-                    <!-- المربع الأحمر للفاتورة -->
                     <div id="billResult" style="display: none; background: #fff; padding: 15px; border-radius: 8px; border: 2px dashed var(--primary-blue); margin-bottom: 15px;">
                         <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء (المبلغ = 0)</div>
                         <h4 style="text-align: center; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">فاتورة الاستهلاك - <span id="printMonth"></span></h4>
@@ -181,7 +180,7 @@
                 <div class="card"><h3 class="card-title">📒 الديون والأرصدة العالقة</h3><div id="debtsListContainer"></div></div>
             </div>
 
-            <!-- سجل العمليات (معدل ليعرض ملخصاً شهرياً فقط) -->
+            <!-- سجل العمليات -->
             <div id="view-finance" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">💰 إضافة عملية مالية استثنائية</h3>
@@ -215,7 +214,7 @@
                 </div>
             </div>
 
-            <!-- تقارير الصندوق (معدل) -->
+            <!-- تقارير الصندوق -->
             <div id="view-reports" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
@@ -256,9 +255,8 @@
                 </div>
             </div>
 
-            <!-- شكايات، قانون أساسي، إعدادات وبوابة المشترك... (باقي الصفحات ثابتة) -->
             <div id="view-complaints" class="view-section"><div class="card"><h3 class="card-title">📥 صندوق الشكايات</h3><div id="complaintsListContainer"></div></div></div>
-            <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 نشاط المكتب</h3><div id="standaloneMemberActivity"></div></div></div>
+            <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 نشاط المكتب</h3><div id="standaloneMemberActivity"><p>مساحة مخصصة لمتابعة نشاط الأعضاء.</p></div></div></div>
             
             <div id="view-bylaws" class="view-section">
                 <div class="card no-print">
