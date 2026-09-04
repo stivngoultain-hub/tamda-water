@@ -5,109 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق تسيير ماء تامدة</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-blue: #1e3c72;
-            --secondary-blue: #2a5298;
-            --accent-green: #25D366;
-            --danger-red: #d32f2f;
-            --secondary-cyan: #00bcd4;
-            --bg-light: #f4f7f6;
-            --text-dark: #333;
-            --card-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
-        body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: hidden; }
-        
-        /* Toast Notification */
-        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 9999; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s, bottom 0.3s; }
-        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-        
-        /* Connection Status */
-        #connectionStatus { position: fixed; top: 0; left: 0; right: 0; text-align: center; color: white; font-weight: bold; padding: 5px; z-index: 10000; font-size: 0.85rem; }
-
-        /* Login Screen */
-        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; padding: 20px; }
-        .login-box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
-        .login-box h2 { color: var(--primary-blue); margin-bottom: 20px; font-weight: 800; }
-        .login-box select, .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
-        .login-box button { width: 100%; padding: 12px; background: var(--accent-green); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .login-box button:hover { background: #1ebd58; }
-        #loginError { color: var(--danger-red); margin-bottom: 15px; display: none; font-weight: bold; }
-
-        /* Sidebar & Overlay */
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
-        #overlay.active { display: block; }
-        #sidebar { position: fixed; top: 0; right: -280px; width: 280px; height: 100vh; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1); z-index: 100; transition: right 0.3s ease; overflow-y: auto; padding-bottom: 20px; }
-        #sidebar.active { right: 0; }
-        .sidebar-header { background: var(--primary-blue); color: white; padding: 20px; text-align: center; font-size: 1.2rem; font-weight: bold; }
-        .sidebar-header span { display: block; font-size: 0.85rem; margin-top: 5px; color: #b3e5fc; }
-        .menu-item { display: block; padding: 15px 20px; color: var(--text-dark); text-decoration: none; border-bottom: 1px solid #eee; font-weight: 500; cursor: pointer; transition: 0.2s; }
-        .menu-item:hover { background: #f0f8ff; color: var(--primary-blue); padding-right: 25px; }
-        
-        /* App Layout */
-        #appContent { display: none; padding-top: 50px; }
-        .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; margin-top: 20px; }
-        .menu-btn { font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--primary-blue); }
-        .main-container { padding: 0 15px 30px 15px; max-width: 1000px; margin: 0 auto; }
-        
-        /* Cards & Forms */
-        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); }
-        .card-title { color: var(--primary-blue); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-        .form-group { margin-bottom: 15px; }
-        .form-label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
-        .form-input, .form-select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; transition: 0.3s; }
-        .form-input:focus, .form-select:focus { border-color: var(--primary-blue); outline: none; }
-        
-        /* Buttons */
-        .btn { padding: 10px 15px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
-        .btn-green { background: var(--accent-green); width: 100%; margin-top: 10px; }
-        .btn-green:hover { background: #1ebd58; }
-        .btn-blue { background: var(--primary-blue); }
-        .btn-outline { background: transparent; border: 2px solid var(--primary-blue); color: var(--primary-blue); }
-        .btn-danger { background: var(--danger-red); }
-        
-        /* Lists */
-        .list-item { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border-right: 4px solid var(--primary-blue); }
-        .list-info { display: flex; flex-direction: column; gap: 5px; }
-        .list-info strong { font-size: 1.1rem; }
-        .list-info span { font-size: 0.85rem; color: #666; }
-        
-        /* Utility Buttons */
-        .action-btn { background: #ffebee; color: var(--danger-red); border: 1px solid #ffcdd2; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
-        .edit-btn { background: #e3f2fd; color: var(--primary-blue); border: 1px solid #bbdefb; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
-        .pay-btn { background: #e8f5e9; color: var(--accent-green); border: 1px solid #c8e6c9; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; font-weight: bold; margin-top: 5px;}
-
-        /* Alert Boxes */
-        .alert-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: 600; display: none; }
-        .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        
-        /* Dashboard Stats Grid */
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: var(--card-shadow); border-bottom: 3px solid var(--primary-blue); }
-        .stat-card h3 { font-size: 1.5rem; color: var(--primary-blue); margin-bottom: 5px; }
-        .stat-card p { font-size: 0.9rem; color: #666; }
-        
-        /* Bar Charts */
-        .chart-container { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-top: 15px; }
-        .chart-bar-wrap { margin-bottom: 12px; }
-        .chart-bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-        .chart-bar-bg { width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden; }
-        .chart-bar-fill { height: 100%; border-radius: 5px; }
-
-        /* Print Media Queries */
-        @media print {
-            body { background: white !important; }
-            #sidebar, #overlay, .header, .menu-btn, .no-print, .btn, .card-title, #connectionStatus { display: none !important; }
-            #appContent { padding-top: 0 !important; }
-            .card { box-shadow: none !important; border: 1px solid #ccc; break-inside: avoid; }
-            .printable-archive { margin-bottom: 30px; break-after: page; }
-            .archive-table { border-collapse: collapse; width: 100%; }
-            .archive-table th, .archive-table td { border: 1px solid #000; padding: 8px; text-align: right; }
-            .archive-table th { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -282,7 +180,7 @@
 
                     <button class="btn btn-blue" style="width:100%; margin-bottom:15px;" onclick="calculateBill()">🧮 حساب الفاتورة</button>
 
-                    <!-- Bill Result -->
+                    <!-- Bill Result (المربع الأحمر) -->
                     <div id="billResult" style="display: none; background: #fff; padding: 15px; border-radius: 8px; border: 2px dashed var(--primary-blue); margin-bottom: 15px;">
                         <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء (المبلغ = 0)</div>
                         <h4 style="text-align: center; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">فاتورة الاستهلاك - <span id="printMonth"></span></h4>
@@ -304,7 +202,7 @@
                             <button class="btn btn-green" style="flex:1; margin-top:0;" onclick="saveBill(true)">💵 أداء خالص</button>
                             <button class="btn btn-outline" style="flex:1;" onclick="saveBill(false)">📝 تسجيل كدين</button>
                         </div>
-                        <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة عبر واتساب</button>
+                        <button class="btn btn-green no-print" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة عبر واتساب</button>
                         <button class="btn btn-outline no-print" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية (A4)</button>
                         <button class="btn btn-outline no-print" style="width:100%; margin-top:10px; background-color: #333; color: white; border: none;" onclick="printThermalBill()">🖨️ طباعة توصيل (طابعة حرارية)</button>
                     </div>
@@ -541,45 +439,6 @@
                 </div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- قالب الفاتورة الحرارية (مخفي افتراضياً) -->
-    <div id="thermalReceipt" class="no-print" style="display: none;">
-        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 10px;">
-            <img src="logo.png" alt="شعار الجمعية" style="width: 50px; height: 50px; margin: 0 auto; display: block;" onerror="this.style.display='none'">
-            <h3 style="margin: 5px 0 2px 0; font-size: 16px;">جمعية تامدة</h3>
-            <p style="margin: 0; font-size: 12px;">لتسيير ماء الشرب</p>
-            <p style="margin: 5px 0 0 0; font-size: 11px; font-weight: bold;">وصل أداء / فاتورة</p>
-        </div>
-        
-        <div style="font-size: 12px; line-height: 1.6;">
-            <div style="display: flex; justify-content: space-between;"><span>الشهر:</span> <strong id="tr-month"></strong></div>
-            <div style="display: flex; justify-content: space-between;"><span>رقم العداد:</span> <strong id="tr-counter"></strong></div>
-            <div style="display: flex; justify-content: space-between;"><span>المشترك:</span> <strong id="tr-name"></strong></div>
-            
-            <hr style="border: 0; border-top: 1px dashed #000; margin: 5px 0;">
-            
-            <div style="display: flex; justify-content: space-between;"><span>قراءة سابقة:</span> <strong id="tr-prev"></strong></div>
-            <div style="display: flex; justify-content: space-between;"><span>قراءة حالية:</span> <strong id="tr-curr"></strong></div>
-            <div style="display: flex; justify-content: space-between;"><span>الاستهلاك:</span> <strong id="tr-consumption"></strong></div>
-            
-            <hr style="border: 0; border-top: 1px dashed #000; margin: 5px 0;">
-            
-            <div style="display: flex; justify-content: space-between;"><span>صيانة العداد:</span> <strong id="tr-maintenance"></strong></div>
-            <div style="display: flex; justify-content: space-between;"><span>ثمن الاستهلاك:</span> <strong id="tr-cost"></strong></div>
-            <div id="tr-penalty-row" style="display: flex; justify-content: space-between;"><span>ذعيرة التأخير:</span> <strong id="tr-penalty"></strong></div>
-            
-            <hr style="border: 0; border-top: 1px solid #000; margin: 8px 0;">
-            
-            <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold;">
-                <span>المبلغ الإجمالي:</span> <span id="tr-total"></span>
-            </div>
-        </div>
-        
-        <div style="text-align: center; font-size: 10px; margin-top: 15px; border-top: 1px dashed #000; padding-top: 5px;">
-            <p style="margin: 0;">شكراً لتعاونكم</p>
-            <p style="margin: 2px 0 0 0;" id="tr-date"></p>
         </div>
     </div>
 
