@@ -3,107 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جمعية تامدة للتنمية</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <title>تسيير ماء تامدة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- الشريط العلوي -->
-    <header class="header no-print">
+    <!-- الشريط العلوي الأساسي -->
+    <header class="header">
         <div class="header-right">
             <button class="menu-btn" onclick="toggleSidebar()">☰</button>
             <h1 class="app-title">تامدة للتنمية 💧</h1>
         </div>
         <div class="header-left">
-            <span class="status-badge" id="connectionStatus">متصل</span>
+            <span class="status-badge">متصل</span>
         </div>
     </header>
 
-    <!-- القائمة الجانبية -->
-    <aside class="sidebar no-print" id="sidebar">
+    <!-- القائمة الجانبية المطابقة لصورتك الأصلية -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="close-btn" onclick="toggleSidebar()">❌</button>
+            <span class="welcome-user">مرحباً: الرئيس</span>
+        </div>
+        
+        <div class="sidebar-title">القائمة الرئيسية</div>
+
         <ul class="sidebar-menu">
-            <li><a href="#">🏠 لوحة القيادة</a></li>
-            <li><a href="#">👥 إدارة المشتركين</a></li>
-            <li><a href="#">💧 إدارة العدادات</a></li>
-            <li><a href="#">📊 الإحصائيات</a></li>
-            <li><a href="#">📑 التقارير</a></li>
-            <li><a href="#">💰 المداخيل</a></li>
-            <li><a href="#">📒 الديون</a></li>
-            <li><a href="#">📜 القوانين</a></li>
-            <li><a href="#">🗄️ الأرشيف</a></li>
-            <li><a href="#">⚙️ الإعدادات</a></li>
-            <li><a href="#">🚪 تسجيل الخروج</a></li>
+            <li><a href="#">لوحة القيادة 🏠</a></li>
+            <li><a href="#">إدارة المنخرطين 👥</a></li>
+            <li><a href="#">إدارة ماء الشرب 💧</a></li>
+            <li><a href="#">المداخيل والمصاريف 💰</a></li>
+            <li><a href="#">الديون والأرصدة 📒</a></li>
+            <li><a href="#">التقارير المالية 📊</a></li>
+            <li><a href="#">القانون الأساسي 📜</a></li>
+            <li><a href="#">الأرشيف والتخزين 🗄️</a></li>
+            <li><a href="#">الإعدادات ⚙️</a></li>
+            <li><a href="#" class="logout-link">تسجيل الخروج والقفل 🚪</a></li>
         </ul>
     </aside>
+    <!-- طبقة تظليل خلف القائمة -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-    <!-- طبقة التظليل عند فتح القائمة -->
-    <div class="overlay no-print" id="overlay" onclick="toggleSidebar()"></div>
-
-    <!-- المحتوى الرئيسي -->
+    <!-- منطقة المحتوى الرئيسية -->
     <main class="main-content">
         
-        <!-- لوحة التحكم بالطباعة (تختفي عند الطباعة) -->
+        <!-- البطاقة العلوية الخاصة بالطباعة (تختفي عند الطباعة) -->
         <div class="card no-print">
-            <h2 class="card-title">نظام إدارة الأداءات</h2>
-            <p style="margin-bottom: 20px; color: #555;">يرجى مراجعة بيانات الوصل قبل إعطاء أمر الطباعة.</p>
-            
-            <div class="btn-group">
-                <button class="btn btn-danger">إلغاء العملية</button>
-                <button class="btn btn-primary" onclick="window.print()">🖨️ طباعة الوصل</button>
+            <div class="card-header">
+                <h2>🗂️ ملف الاستهلاك الشهري والأرشيف الشامل</h2>
             </div>
+            <p style="color: #666; margin-bottom: 15px;">يجمع استهلاك كل عداد، ثمنه، وضعية الدفع، والمداخيل لشهر معين.</p>
+            <button class="btn btn-primary" onclick="window.print()">🖨️ طباعة الأرشيف الشامل</button>
         </div>
 
-        <!-- هيكل الوصل (هذا هو الجزء الوحيد الذي سيتم طباعته) -->
-        <div class="card receipt-card" id="receiptCard">
-            <div class="receipt-header">
-                <h3>جمعية تامدة للتنمية</h3>
-                <p>وصل استلام / أداء</p>
+        <!-- بطاقة الوصل (هذا الجزء فقط هو ما سيُطبع) -->
+        <div class="card" id="receiptCard">
+            <div class="card-title">
+                📅 ملف الاستهلاك الشامل - شهر: 09 / 2026
             </div>
             
-            <table>
-                <thead>
-                    <tr>
-                        <th>البيان</th>
-                        <th>المبلغ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>انخراط شهري</td>
-                        <td>50 درهم</td>
-                    </tr>
-                    <tr>
-                        <td>مساهمة إضافية</td>
-                        <td>20 درهم</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="receipt-footer">
-                <p>شكراً لتعاونكم</p>
-                <p id="receiptDate"></p>
+            <div class="receipt-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>إجمالي الاستهلاك</th>
+                            <th>إجمالي المبالغ المحصلة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>0 m³</strong></td>
+                            <td class="text-green"><strong>0 درهم</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3 class="section-title">💧 تفاصيل استهلاك العدادات والوضعيات:</h3>
+                <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">لا توجد فواتير مسجلة لهذا الشهر.</p>
+                
+                <h3 class="section-title">💰 العمليات المالية (مداخيل ومصاريف):</h3>
+                <table class="financial-table">
+                    <thead>
+                        <tr>
+                            <th>النوع</th>
+                            <th>المبلغ (درهم)</th>
+                            <th>الوصف</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-red"><strong>مصروف (-)</strong></td>
+                            <td>3000</td>
+                            <td>أجرة التقني</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
     </main>
 
     <script>
-        // دالة فتح وإغلاق القائمة الجانبية
         function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
         }
-
-        // إدراج التاريخ والوقت الحالي في الوصل
-        window.onload = function() {
-            const dateElement = document.getElementById('receiptDate');
-            if (dateElement) {
-                dateElement.innerText = new Date().toLocaleString('ar-MA');
-            }
-        };
     </script>
 </body>
 </html>
