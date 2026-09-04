@@ -1,273 +1,128 @@
 :root {
-    --primary-blue: #0277bd;       /* الأزرق المائي المستوحى من الشعار */
-    --secondary-cyan: #00acc1;     /* التركوازي الفاتح */
-    --accent-green: #26a69a;       /* الأخضر المائي الفاتح الجميل من واجهتك */
-    --accent-green-light: #e0f2f1; /* أخضر فاتح جداً للخلفيات */
-    --danger-red: #e53935;         /* الأحمر المستوحى من حروف TAMDA */
-    --dark-neutral: #263238;       /* الرمادي الغامق للنصوص */
-    --bg-light: #f4f7f6;           /* خلفية عامة مريحة ونظيفة */
+    /* ألوان الهوية البصرية لجمعية تامدة للتنمية */
+    --primary-cyan: #00bcd4; /* أزرق سماوي/مائي */
+    --primary-turquoise: #1abc9c; /* تركوازي مائي */
+    --primary-aquamarine: #7fffd4; /* أكوامارين */
+    --accent-green: #20b2aa; /* أخضر مائي فاتح */
+    --danger-red: #e74c3c; /* أحمر للتنبيهات */
+    --text-dark: #2c3e50; /* رمادي داكن للنصوص */
+    --bg-light: #f8f9fa;
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--bg-light);
-    color: var(--dark-neutral);
-    margin: 0;
-    padding: 0;
-    direction: rtl;
-}
-
-/* شريط الاتصال العلوي بالأخضر الفاتح المطلوب */
-#connectionStatus {
-    background-color: var(--accent-green) !important;
-    color: white;
-    font-weight: bold;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-}
-
-.header {
-    background: linear-gradient(135deg, #01579b, #00838f);
-    color: white;
-    padding: 15px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 131, 143, 0.2);
-}
-
-.header h2 { 
+* { 
+    box-sizing: border-box; 
     margin: 0; 
-    font-size: 1.3rem; 
-    font-weight: 700;
+    padding: 0; 
+    font-family: 'Tajawal', sans-serif; 
 }
 
-.menu-btn { 
-    background: none; 
-    border: none; 
-    color: white; 
-    font-size: 1.5rem; 
-    cursor: pointer; 
+body { 
+    background-color: var(--bg-light); 
+    color: var(--text-dark); 
+    overflow-x: hidden; 
 }
 
-.container { 
-    padding: 15px; 
-    max-width: 600px; 
-    margin: auto; 
-}
-
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-    margin-bottom: 20px;
-    border: 1px solid #e0f2f1;
-}
-
-.form-group { 
-    margin-bottom: 15px; 
-}
-
-.form-group label { 
-    display: block; 
-    margin-bottom: 6px; 
-    font-weight: 600; 
-    color: #37474f; 
-    font-size: 0.95rem; 
-}
-
-.form-control {
-    width: 100%;
-    padding: 11px 14px;
-    border: 1px solid #b2dfdb;
-    border-radius: 10px;
-    font-size: 1rem;
-    box-sizing: border-box;
-    background: #fff;
-    transition: all 0.2s;
-}
-
-.form-control:focus {
-    border-color: var(--secondary-cyan);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 172, 193, 0.15);
-}
-
+/* الأزرار والعناصر الأساسية */
 .btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
+    padding: 10px 15px;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
-    text-align: center;
-    transition: 0.2s;
+    transition: background 0.2s;
 }
 
-.btn-blue { background: #01579b; color: white; box-shadow: 0 4px 10px rgba(1, 87, 155, 0.2); }
-.btn-green { background: #26a69a; color: white; box-shadow: 0 4px 10px rgba(38, 166, 154, 0.2); }
-.btn-danger { background: #e53935; color: white; box-shadow: 0 4px 10px rgba(229, 57, 53, 0.2); }
-.btn-outline { background: #fff; color: #01579b; border: 1px solid #80deea; }
+.btn-primary {
+    background: var(--primary-cyan);
+    color: white;
+}
 
-.sidebar {
-    position: fixed;
-    top: 0; 
-    right: -280px;
-    width: 280px; 
-    height: 100%;
+.btn-primary:hover {
+    background: var(--primary-turquoise);
+}
+
+.btn-danger {
+    background: var(--danger-red);
+    color: white;
+}
+
+/* البطاقات والنماذج */
+.card {
     background: white;
-    box-shadow: -5px 0 20px rgba(0,0,0,0.1);
-    transition: 0.3s;
-    z-index: 1000;
-    overflow-y: auto;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--card-shadow);
+    border-right: 4px solid var(--primary-turquoise);
 }
 
-.sidebar.active { right: 0; }
-
-.sidebar-header { 
-    background: #01579b; 
-    color: white; 
-    padding: 22px; 
-    text-align: center; 
+.card-title {
+    color: var(--text-dark);
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    font-weight: 700;
 }
 
-.sidebar-menu { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-}
-
-.sidebar-menu li a {
-    display: block; 
-    padding: 15px 20px; 
-    color: #37474f; 
-    text-decoration: none;
-    border-bottom: 1px solid #f0f4f4; 
-    font-weight: 600; 
-    transition: 0.2s;
-}
-
-.sidebar-menu li a:hover { 
-    background: var(--accent-green-light); 
-    color: #01579b; 
-}
-
-.overlay {
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 100%;
-    background: rgba(0,0,0,0.4); 
-    display: none; 
-    z-index: 999;
-}
-
-.overlay.active { display: block; }
-
-.toast {
-    position: fixed; 
-    bottom: 20px; 
-    left: 50%; 
-    transform: translateX(-50%);
-    background: #263238; 
-    color: white; 
-    padding: 10px 20px; 
-    border-radius: 30px;
-    font-size: 0.9rem; 
-    z-index: 2000; 
-    opacity: 0; 
-    transition: 0.3s; 
-    pointer-events: none;
-}
-
-.toast.show { opacity: 1; }
-
-.list-item {
-    background: #fff; 
-    padding: 14px 16px; 
-    border-radius: 10px; 
-    margin-bottom: 10px;
-    border: 1px solid #e0f2f1; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center;
-    border-right: 4px solid #00acc1;
-}
-
-.list-info { display: flex; flex-direction: column; gap: 4px; }
-.list-info strong { font-size: 1rem; color: #263238; }
-.list-info span { font-size: 0.85rem; color: #607d8b; }
-
-.action-btn { 
-    background: #fff; 
-    color: #e53935; 
-    border: 1px solid #ffcdd2; 
-    padding: 6px 12px; 
-    border-radius: 8px; 
-    font-size: 0.85rem; 
-    cursor: pointer; 
-    font-weight: bold; 
-}
-
-.pay-btn { 
-    background: #26a69a; 
-    color: white; 
-    border: none; 
-    padding: 6px 15px; 
-    border-radius: 8px; 
-    font-size: 0.85rem; 
-    cursor: pointer; 
-    font-weight: bold; 
-}
-
-.text-success { color: #26a69a !important; }
-.text-danger { color: #e53935 !important; }
-
-/* ========================================================
-   تنسيقات الطباعة الخاصة بالوصل المصغر لطابعات البلوتوث المحمولة
-   ======================================================== */
+/* تنسيقات الطباعة الحرارية المصغرة (الطابعات اليدوية المحمولة 58mm) */
 @media print {
-    body * {
-        visibility: hidden !important;
-    }
-
-    #billResult, #billResult * {
-        visibility: visible !important;
-    }
-
     @page {
-        size: 58mm auto;
-        margin: 1mm;
+        margin: 0;
+        size: 58mm auto; /* مقاس الورق الحراري القياسي */
     }
-
-    body, html {
+    
+    body {
         width: 58mm;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
+        margin: 0;
+        padding: 2mm;
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 11px;
     }
 
-    #billResult {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 4mm !important;
-        border: none !important;
-        box-shadow: none !important;
-        background: #ffffff !important;
-        font-size: 11px !important;
-        box-sizing: border-box !important;
-    }
-
-    #billResult .no-print, 
-    #billResult button {
+    /* إخفاء العناصر غير الضرورية في الوصل المطبوع */
+    .no-print, #sidebar, #overlay, header, .menu-btn, .btn, #connectionStatus {
         display: none !important;
+    }
+
+    .card {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* تنسيق الجداول لتناسب الورق الصغير بشكل دقيق */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 5px;
+    }
+
+    th, td {
+        border-bottom: 1px dashed #000;
+        padding: 3px;
+        text-align: center;
+        font-size: 10px;
+    }
+
+    th {
+        font-weight: bold;
+    }
+
+    .receipt-header {
+        text-align: center;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 5px;
+    }
+    
+    .receipt-footer {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 9px;
     }
 }
