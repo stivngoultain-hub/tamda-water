@@ -168,7 +168,6 @@
                     </div>
                 </div>
 
-                <!-- إضافة قسم فواتير العداد للإمكانية التعديل -->
                 <div class="card" id="counterHistoryCard" style="display:none;">
                     <h3 class="card-title">📅 سجل الفواتير للعداد المحدد</h3>
                     <div id="counterBillsList"></div>
@@ -219,7 +218,10 @@
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
                         <h3 class="card-title" style="border:none; margin:0; padding:0;">🏦 الرصيد الإجمالي للصندوق</h3>
-                        <button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="addManualCapital()">➕ إضافة رصيد يدوي</button>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="addManualCapital()">➕ إضافة رصيد يدوي</button>
+                            <button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="window.print()">🖨️ طباعة</button>
+                        </div>
                     </div>
                     <div style="background:var(--primary-blue); color:white; padding:20px; border-radius:10px; text-align:center; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
                         <p style="margin-bottom:5px; opacity:0.9;">مجموع الرصيد المتوفر بالصندوق (يتم تحديثه تلقائياً)</p>
@@ -235,16 +237,30 @@
                 </div>
             </div>
 
-            <!-- الإحصائيات والأرشيف -->
+            <!-- الإحصائيات الشاملة -->
             <div id="view-stats" class="view-section">
-                <div class="card no-print"><h3 class="card-title">📊 الإحصائيات الشاملة</h3>
-                    <select id="statTypeSelect" class="form-select" onchange="toggleStatInputs()"><option value="monthly">إحصائيات شهرية</option><option value="yearly">إحصائيات سنوية</option></select>
-                    <div class="form-group" id="monthInputGroup" style="margin-top:10px;"><input type="month" id="statsMonthSelect" class="form-input" onchange="renderAdvancedStats()"></div>
-                    <div class="form-group" id="yearInputGroup" style="display:none; margin-top:10px;"><input type="number" id="statsYearSelect" class="form-input" placeholder="مثال: 2024" value="2024" onchange="renderAdvancedStats()"></div>
+                <div class="card no-print">
+                    <h3 class="card-title">📊 الإحصائيات الشاملة</h3>
+                    <select id="statTypeSelect" class="form-select" onchange="toggleStatInputs()">
+                        <option value="monthly">إحصائيات شهرية</option>
+                        <option value="yearly">إحصائيات سنوية</option>
+                    </select>
+                    <div class="form-group" id="monthInputGroup" style="margin-top:10px;">
+                        <label class="form-label">اختر الشهر:</label>
+                        <input type="month" id="statsMonthSelect" class="form-input" onchange="renderAdvancedStats()">
+                    </div>
+                    <div class="form-group" id="yearInputGroup" style="display:none; margin-top:10px;">
+                        <label class="form-label">اكتب السنة:</label>
+                        <input type="number" id="statsYearSelect" class="form-input" placeholder="مثال: 2024" value="2024" onchange="renderAdvancedStats()">
+                    </div>
                 </div>
-                <div class="card"><h3 class="card-title">النتائج البيانية</h3><div id="statsContainer"></div></div>
+                <div class="card">
+                    <h3 class="card-title">النتائج البيانية</h3>
+                    <div id="statsContainer"><p style="color:#666;">المرجو تحديد الشهر أو السنة لعرض الإحصائيات.</p></div>
+                </div>
             </div>
 
+            <!-- الأرشيف والتخزين -->
             <div id="view-archive" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -255,17 +271,30 @@
                 </div>
             </div>
 
+            <!-- الشكايات ونشاط المكتب -->
             <div id="view-complaints" class="view-section"><div class="card"><h3 class="card-title">📥 صندوق الشكايات</h3><div id="complaintsListContainer"></div></div></div>
             <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 نشاط المكتب</h3><div id="standaloneMemberActivity"><p>مساحة مخصصة لمتابعة نشاط الأعضاء.</p></div></div></div>
             
+            <!-- القانون والتقارير (مصمم من جديد) -->
             <div id="view-bylaws" class="view-section">
                 <div class="card no-print">
-                    <h3 class="card-title">📜 القانون والتقارير</h3>
-                    <textarea id="bylawInput" class="form-input" rows="4"></textarea><button class="btn btn-green" onclick="saveBylaws()">حفظ القانون</button>
+                    <h3 class="card-title">📜 القانون الأساسي للجمعية</h3>
+                    <textarea id="bylawInput" class="form-input" rows="8" placeholder="اكتب أو انسخ بنود القانون الأساسي هنا للرجوع إليها..."></textarea>
+                    <button class="btn btn-green" onclick="saveBylaws()">💾 حفظ نص القانون</button>
                 </div>
-                <div class="card"><h3 class="card-title">الأرشيف العام</h3><div id="pdfReportsContainer"></div></div>
+                <div class="card">
+                    <h3 class="card-title">📚 الوثائق والمستندات (روابط خارجية)</h3>
+                    <div class="form-group no-print" style="background:#f0f8ff; padding:15px; border-radius:8px; border:1px dashed var(--primary-blue);">
+                        <label class="form-label">إضافة وثيقة جديدة:</label>
+                        <input type="text" id="docName" class="form-input" placeholder="اسم الوثيقة (مثال: محضر الجمع العام)">
+                        <input type="url" id="docUrl" class="form-input" placeholder="رابط الوثيقة (رابط Google Drive مثلاً)" style="margin-top:10px;">
+                        <button class="btn btn-blue" onclick="saveDocument()">➕ حفظ الوثيقة</button>
+                    </div>
+                    <div id="pdfReportsContainer" style="margin-top:15px;"></div>
+                </div>
             </div>
 
+            <!-- الإعدادات وبوابة المنخرطين -->
             <div id="view-settings" class="view-section">
                 <div class="card">
                     <h3 class="card-title">⚙️ الإعدادات</h3>
