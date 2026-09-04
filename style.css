@@ -1,8 +1,8 @@
 :root {
     --primary-blue: #0056b3;
     --secondary-cyan: #17a2b8;
-    --accent-green: #28a745;
-    --danger-red: #dc3545;
+    --accent-green: #25D366;
+    --danger-red: #c1272d;
     --bg-light: #f4f6f9;
     --text-dark: #333;
 }
@@ -17,13 +17,13 @@ body {
 }
 
 .header {
-    background: linear-gradient(135deg, var(--primary-blue), var(--secondary-cyan));
+    background: linear-gradient(135deg, #004080, #0056b3);
     color: white;
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 
 .header h2 { 
@@ -49,9 +49,9 @@ body {
     background: white;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
     margin-bottom: 20px;
-    border: 1px solid #eaeaea;
+    border: 1px solid #e0e0e0;
 }
 
 .form-group { 
@@ -62,7 +62,7 @@ body {
     display: block; 
     margin-bottom: 5px; 
     font-weight: 600; 
-    color: #555; 
+    color: #444; 
     font-size: 0.95rem; 
 }
 
@@ -89,10 +89,10 @@ body {
     transition: 0.2s;
 }
 
-.btn-blue { background: var(--primary-blue); color: white; }
-.btn-green { background: var(--accent-green); color: white; }
-.btn-danger { background: var(--danger-red); color: white; }
-.btn-outline { background: #fff; color: var(--primary-blue); border: 1px solid var(--primary-blue); }
+.btn-blue { background: #1a365d; color: white; }
+.btn-green { background: #25D366; color: white; }
+.btn-danger { background: #e53e3e; color: white; }
+.btn-outline { background: #fff; color: #1a365d; border: 1px solid #1a365d; }
 
 .sidebar {
     position: fixed;
@@ -101,7 +101,7 @@ body {
     width: 280px; 
     height: 100%;
     background: white;
-    box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+    box-shadow: -5px 0 15px rgba(0,0,0,0.15);
     transition: 0.3s;
     z-index: 1000;
     overflow-y: auto;
@@ -110,7 +110,7 @@ body {
 .sidebar.active { right: 0; }
 
 .sidebar-header { 
-    background: var(--primary-blue); 
+    background: #1a365d; 
     color: white; 
     padding: 20px; 
     text-align: center; 
@@ -134,7 +134,7 @@ body {
 
 .sidebar-menu li a:hover { 
     background: #f8f9fa; 
-    color: var(--primary-blue); 
+    color: #1a365d; 
 }
 
 .overlay {
@@ -155,7 +155,7 @@ body {
     bottom: 20px; 
     left: 50%; 
     transform: translateX(-50%);
-    background: #333; 
+    background: #222; 
     color: white; 
     padding: 10px 20px; 
     border-radius: 30px;
@@ -177,7 +177,7 @@ body {
     display: flex; 
     justify-content: space-between; 
     align-items: center;
-    border-right: 4px solid var(--primary-blue);
+    border-right: 4px solid #1a365d;
 }
 
 .list-info { display: flex; flex-direction: column; gap: 4px; }
@@ -186,8 +186,8 @@ body {
 
 .action-btn { 
     background: #fff; 
-    color: var(--danger-red); 
-    border: 1px solid #fadbd8; 
+    color: #e53e3e; 
+    border: 1px solid #fed7d7; 
     padding: 6px 12px; 
     border-radius: 6px; 
     font-size: 0.85rem; 
@@ -196,7 +196,7 @@ body {
 }
 
 .pay-btn { 
-    background: var(--accent-green); 
+    background: #25D366; 
     color: white; 
     border: none; 
     padding: 6px 15px; 
@@ -206,8 +206,8 @@ body {
     font-weight: bold; 
 }
 
-.text-success { color: var(--accent-green) !important; }
-.text-danger { color: var(--danger-red) !important; }
+.text-success { color: #25D366 !important; }
+.text-danger { color: #e53e3e !important; }
 
 /* ========================================================
    تنسيقات الطباعة الخاصة بالوصل المصغر لطابعات البلوتوث المحمولة
