@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق تسيير ماء تامدة</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- مكتبات خارجية للمبيانات وتصدير الصور -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -60,8 +63,12 @@
     <!-- محتوى التطبيق -->
     <div id="appContent">
         <div class="header no-print">
-            <h3 style="color: var(--primary-blue);">💧 نظام تامدة</h3>
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                <h3 style="color: var(--primary-blue); margin:0;">💧 نظام تامدة</h3>
+            </div>
+            <!-- زر الوضع الداكن -->
+            <button class="menu-btn" style="font-size:1.2rem;" onclick="window.toggleDarkMode()">🌗</button>
         </div>
 
         <div class="main-container">
@@ -80,6 +87,12 @@
                             <p>مجموع الديون</p>
                         </div>
                     </div>
+                    
+                    <!-- المبيان التفاعلي -->
+                    <div style="margin-top:20px; margin-bottom:20px;">
+                        <canvas id="financeChart" height="120"></canvas>
+                    </div>
+
                     <button class="btn btn-blue" style="width:100%;" onclick="navigateTo('💧 إدارة ماء الشرب')">🚀 الذهاب لفوترة الماء</button>
                 </div>
             </div>
@@ -93,6 +106,11 @@
                     <div class="form-group"><label class="form-label">الاسم الكامل:</label><input type="text" id="newSubName" class="form-input"></div>
                     <div class="form-group"><label class="form-label">رقم الهاتف (الواتساب):</label><input type="tel" id="newSubPhone" class="form-input"></div>
                     <div class="form-group"><label class="form-label">الموقع / الدوار:</label><input type="text" id="newSubLocation" class="form-input"></div>
+                    <!-- الإعفاء الدائم -->
+                    <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#e8f5e9; padding:10px; border-radius:6px; border:1px solid #c8e6c9;">
+                        <input type="checkbox" id="newSubAlwaysExempt" style="width:20px; height:20px;">
+                        <label for="newSubAlwaysExempt" style="font-weight:bold; color:var(--accent-green); cursor:pointer;">مرفق معفى دائماً (مسجد، مدرسة...)</label>
+                    </div>
                     <button class="btn btn-green" id="subSaveBtn" onclick="saveSubscriber()">💾 حفظ المشترك</button>
                     <button class="btn btn-danger" id="subCancelBtn" style="display:none; width:100%; margin-top:10px;" onclick="resetSubForm()">❌ إلغاء التعديل</button>
                 </div>
@@ -103,13 +121,18 @@
                 </div>
             </div>
 
-            <!-- إدارة ماء الشرب والفوترة -->
+            <!-- إدارة ماء الشرب -->
             <div id="view-water" class="view-section">
+                <!-- كشف العدادات المنسية -->
+                <div id="unbilledAlertBox" class="alert-box alert-warning no-print" style="display:none; background:#ffebee; color:#c62828; border-color:#ef9a9a;">
+                    ⚠️ العدادات التالية لم تُفوتر لهذا الشهر: <span id="unbilledList" style="font-weight:bold;"></span>
+                </div>
+
                 <div class="card">
                     <h3 class="card-title">💧 فوترة استهلاك الماء</h3>
+                    <div class="form-group"><label class="form-label">شهر الفوترة:</label><input type="month" id="billingMonth" class="form-input" onchange="window.autoAdjustTariff(); window.checkUnbilledCounters();"></div>
                     <div class="form-group"><label class="form-label">رقم العداد:</label><input type="number" id="counterNum" class="form-input" onchange="autoFillSubscriber()"></div>
                     <div class="form-group"><label class="form-label">اسم المشترك:</label><input type="text" id="subscriberName" class="form-input" readonly></div>
-                    <div class="form-group"><label class="form-label">شهر الفوترة:</label><input type="month" id="billingMonth" class="form-input" onchange="window.autoAdjustTariff()"></div>
                     
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
                         <div style="flex:1;">
@@ -142,29 +165,35 @@
                     <div id="smartAlertBox" class="alert-box alert-warning"></div>
                     <button class="btn btn-blue" style="width:100%; margin-bottom:15px;" onclick="calculateBill()">🧮 حساب الفاتورة</button>
 
-                    <div id="billResult" style="display: none; background: #fff; padding: 15px; border-radius: 8px; border: 2px dashed var(--primary-blue); margin-bottom: 15px;">
-                        <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء (المبلغ = 0)</div>
-                        <h4 style="text-align: center; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">فاتورة الاستهلاك - <span id="printMonth"></span></h4>
-                        <p><strong>المشترك:</strong> <span id="printName"></span> (عداد: <span id="printCounter"></span>)</p>
-                        <p><strong>القراءة السابقة:</strong> <span id="printPrev"></span></p>
-                        <p><strong>القراءة الحالية:</strong> <span id="printCurr"></span></p>
-                        <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>صيانة العداد:</span><strong id="printMaintenance"></strong></div>
-                        <div id="row-t1" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--accent-green);"><span>الشطر الأول:</span><strong id="t1-val"></strong></div>
-                        <div id="row-t2" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--secondary-cyan);"><span>الشطر الثاني:</span><strong id="t2-val"></strong></div>
-                        <div id="row-t3" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger-red);"><span>الشطر الثالث:</span><strong id="t3-val"></strong></div>
-                        <div id="penaltyRow" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger-red);"><span>ذعيرة التأخير:</span><strong id="printPenalty"></strong></div>
-                        <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
-                        <div style="display:flex; justify-content:space-between; font-size:1.1rem;"><span>حجم الاستهلاك:</span><strong style="color:var(--primary-blue);" id="consumptionResult"></strong></div>
-                        <div style="display:flex; justify-content:space-between; font-size:1.3rem; margin-top:10px; background:#f0f8ff; padding:10px; border-radius:5px;"><span>المبلغ الإجمالي:</span><strong style="color:var(--danger-red);" id="totalPriceResult"></strong></div>
-                        
-                        <div style="display:flex; gap:10px; margin-top:15px;" class="no-print">
+                    <!-- حاوية الفاتورة (للتصدير كصورة) -->
+                    <div id="billExportContainer">
+                        <div id="billResult" style="display: none; background: #fff; padding: 15px; border-radius: 8px; border: 2px dashed var(--primary-blue); margin-bottom: 15px; color:black;">
+                            <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء (المبلغ = 0)</div>
+                            <h4 style="text-align: center; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">فاتورة الاستهلاك - <span id="printMonth"></span></h4>
+                            <p><strong>المشترك:</strong> <span id="printName"></span> (عداد: <span id="printCounter"></span>)</p>
+                            <p><strong>القراءة السابقة:</strong> <span id="printPrev"></span></p>
+                            <p><strong>القراءة الحالية:</strong> <span id="printCurr"></span></p>
+                            <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>صيانة العداد:</span><strong id="printMaintenance"></strong></div>
+                            <div id="row-t1" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--accent-green);"><span>الشطر الأول:</span><strong id="t1-val"></strong></div>
+                            <div id="row-t2" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--secondary-cyan);"><span>الشطر الثاني:</span><strong id="t2-val"></strong></div>
+                            <div id="row-t3" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger-red);"><span>الشطر الثالث:</span><strong id="t3-val"></strong></div>
+                            <div id="penaltyRow" style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger-red);"><span>ذعيرة التأخير:</span><strong id="printPenalty"></strong></div>
+                            <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
+                            <div style="display:flex; justify-content:space-between; font-size:1.1rem;"><span>حجم الاستهلاك:</span><strong style="color:var(--primary-blue);" id="consumptionResult"></strong></div>
+                            <div style="display:flex; justify-content:space-between; font-size:1.3rem; margin-top:10px; background:#f0f8ff; padding:10px; border-radius:5px;"><span>المبلغ الإجمالي:</span><strong style="color:var(--danger-red);" id="totalPriceResult"></strong></div>
+                        </div>
+                    </div>
+                    
+                    <div id="billActionsContainer" style="display:none;" class="no-print">
+                        <div style="display:flex; gap:10px; margin-top:15px;">
                             <button class="btn btn-green" style="flex:1; margin-top:0;" onclick="saveBill(true)">💵 أداء خالص</button>
                             <button class="btn btn-outline" style="flex:1;" onclick="saveBill(false)">📝 تسجيل كدين</button>
                         </div>
-                        <button class="btn btn-green no-print" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة عبر واتساب</button>
-                        <button class="btn btn-outline no-print" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية (A4)</button>
-                        <button class="btn btn-outline no-print" style="width:100%; margin-top:10px; background-color: #333; color: white; border: none;" onclick="printThermalBill()">🖨️ طباعة توصيل (طابعة حرارية)</button>
+                        <button class="btn btn-outline" style="width:100%; margin-top:10px; background:#e3f2fd; color:var(--primary-blue);" onclick="window.downloadBillAsImage()">📸 تحميل الفاتورة كصورة للواتساب</button>
+                        <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة نصياً عبر واتساب</button>
+                        <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية (A4)</button>
+                        <button class="btn btn-outline" style="width:100%; margin-top:10px; background-color: #333; color: white; border: none;" onclick="printThermalBill()">🖨️ طباعة توصيل (طابعة حرارية)</button>
                     </div>
                 </div>
 
@@ -176,7 +205,17 @@
 
             <!-- الديون -->
             <div id="view-debts" class="view-section">
-                <div class="card"><h3 class="card-title">📒 الديون والأرصدة العالقة</h3><div id="debtsListContainer"></div></div>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #eee; padding-bottom:10px; margin-bottom:15px;">
+                        <h3 class="card-title" style="border:none; margin:0; padding:0;">📒 الديون والأرصدة العالقة</h3>
+                        <select id="debtSortSelect" class="form-select no-print" style="width:auto;" onchange="renderDebts()">
+                            <option value="counter">ترتيب بالعداد</option>
+                            <option value="highest">الأكثر مديونية</option>
+                            <option value="oldest">الأكثر تأخيراً</option>
+                        </select>
+                    </div>
+                    <div id="debtsListContainer"></div>
+                </div>
             </div>
 
             <!-- سجل العمليات -->
@@ -228,7 +267,7 @@
                         <h2 id="mainCapitalAmount" style="font-size:2.5rem; margin:0; direction:ltr;">0 درهم</h2>
                     </div>
                     
-                    <h4 style="margin-bottom:10px; color:#555;">الإضافات اليدوية السابقة:</h4>
+                    <h4 style="margin-bottom:10px; color:var(--text-dark);">الإضافات اليدوية السابقة:</h4>
                     <div id="capitalLedgerContainer" style="margin-bottom: 20px;"></div>
                 </div>
                 <div class="card">
@@ -240,10 +279,10 @@
             <!-- الإحصائيات الشاملة -->
             <div id="view-stats" class="view-section">
                 <div class="card no-print">
-                    <h3 class="card-title">📊 الإحصائيات الشاملة</h3>
+                    <h3 class="card-title">📊 الإحصائيات الشاملة والتقرير السنوي</h3>
                     <select id="statTypeSelect" class="form-select" onchange="toggleStatInputs()">
                         <option value="monthly">إحصائيات شهرية</option>
-                        <option value="yearly">إحصائيات سنوية</option>
+                        <option value="yearly">إحصائيات سنوية (إنشاء تقرير أدبي/مالي)</option>
                     </select>
                     <div class="form-group" id="monthInputGroup" style="margin-top:10px;">
                         <label class="form-label">اختر الشهر:</label>
@@ -251,7 +290,10 @@
                     </div>
                     <div class="form-group" id="yearInputGroup" style="display:none; margin-top:10px;">
                         <label class="form-label">اكتب السنة:</label>
-                        <input type="number" id="statsYearSelect" class="form-input" placeholder="مثال: 2024" value="2024" onchange="renderAdvancedStats()">
+                        <div style="display:flex; gap:10px;">
+                            <input type="number" id="statsYearSelect" class="form-input" placeholder="مثال: 2024" value="2024" onchange="renderAdvancedStats()">
+                            <button class="btn btn-blue" onclick="window.generateAnnualReport()">📄 توليد التقرير</button>
+                        </div>
                     </div>
                 </div>
                 <div class="card">
@@ -273,9 +315,9 @@
 
             <!-- الشكايات ونشاط المكتب -->
             <div id="view-complaints" class="view-section"><div class="card"><h3 class="card-title">📥 صندوق الشكايات</h3><div id="complaintsListContainer"></div></div></div>
-            <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 نشاط المكتب</h3><div id="standaloneMemberActivity"><p>مساحة مخصصة لمتابعة نشاط الأعضاء.</p></div></div></div>
+            <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 نشاط المكتب وتتبع العمليات</h3><div id="standaloneMemberActivity"></div></div></div>
             
-            <!-- القانون والتقارير (مصمم من جديد) -->
+            <!-- القانون والتقارير -->
             <div id="view-bylaws" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">📜 القانون الأساسي للجمعية</h3>
@@ -324,6 +366,12 @@
             if(!monthInput) return;
             document.getElementById('tariffSystem').value = (monthInput <= "2026-06") ? "old" : "new";
         };
+        // تهيئة الشهر الحالي للفوترة
+        document.addEventListener('DOMContentLoaded', () => {
+            let now = new Date();
+            let month = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('billingMonth').value = now.getFullYear() + "-" + month;
+        });
     </script>
     <script type="module" src="script.js"></script>
 </body>
