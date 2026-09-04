@@ -1,11 +1,11 @@
 :root {
-    /* الألوان المستوحاة من واجهة التطبيق المرفقة */
-    --primary-blue: #1e6385; /* الأزرق الداكن للشريط العلوي والعناوين */
-    --primary-teal: #3b95a5; /* الأزرق المخضر (التركوازي) للأزرار مثل زر الطباعة */
-    --status-green: #2ecc71; /* الأخضر لزر "متصل" */
-    --danger-red: #e74c3c;   /* الأحمر للتنبيهات والمصاريف */
-    --text-dark: #2c3e50;    /* لون النصوص العادية */
-    --bg-light: #f4f6f9;     /* لون الخلفية الفاتح */
+    /* ألوان مطابقة لواجهة التطبيق المرفقة */
+    --primary-blue: #1e6385; 
+    --primary-teal: #3b95a5; 
+    --status-green: #2ecc71; 
+    --danger-red: #e74c3c;   
+    --text-dark: #2c3e50;    
+    --bg-light: #f4f6f9;     
     --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
@@ -22,28 +22,7 @@ body {
     overflow-x: hidden; 
 }
 
-/* الأزرار والعناصر الأساسية */
-.btn {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    color: white;
-}
-
-/* الأزرار العادية (مثل زر الطباعة) */
-.btn-primary {
-    background: var(--primary-teal);
-}
-
-.btn-primary:hover {
-    background: #32808e; /* درجة أغمق قليلاً عند التمرير */
-}
-
-/* الشريط العلوي (Header) */
+/* ----------------- الشريط العلوي ----------------- */
 .header {
     background-color: var(--primary-blue);
     color: white;
@@ -51,24 +30,114 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-.btn-danger {
-    background: var(--danger-red);
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-/* البطاقات والنماذج */
+.menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.app-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.status-badge {
+    background-color: var(--status-green);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+/* ----------------- القائمة الجانبية ----------------- */
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: -250px;
+    width: 250px;
+    height: 100vh;
+    background: white;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    padding-top: 60px;
+}
+
+.sidebar.active {
+    right: 0;
+}
+
+.sidebar-menu {
+    list-style: none;
+}
+
+.sidebar-menu li a {
+    display: block;
+    padding: 15px 20px;
+    color: var(--text-dark);
+    text-decoration: none;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 1rem;
+}
+
+.sidebar-menu li a:hover {
+    background-color: var(--bg-light);
+    color: var(--primary-blue);
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: none;
+}
+
+.overlay.active {
+    display: block;
+}
+
+/* ----------------- المحتوى الرئيسي ----------------- */
+.main-content {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* البطاقات */
 .card {
     background: white;
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: var(--card-shadow);
-    border-right: 4px solid var(--primary-teal); /* تم تغيير الحافة لتطابق لون الأزرار */
+    border-right: 4px solid var(--primary-teal);
+}
+
+.receipt-card {
+    max-width: 350px;
+    margin: 0 auto;
 }
 
 .card-title {
-    color: var(--primary-blue); /* العناوين تأخذ لون الشريط العلوي */
+    color: var(--primary-blue);
     border-bottom: 2px solid #eee;
     padding-bottom: 10px;
     margin-bottom: 15px;
@@ -76,7 +145,53 @@ body {
     font-weight: 700;
 }
 
-/* تنسيقات الطباعة الحرارية المصغرة (الطابعات اليدوية المحمولة 58mm) */
+/* الأزرار */
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    flex: 1;
+    text-align: center;
+}
+
+.btn-primary { background: var(--primary-teal); }
+.btn-danger { background: var(--danger-red); }
+
+/* تنسيق الوصل العادي (قبل الطباعة) */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+th, td {
+    border-bottom: 1px solid #eee;
+    padding: 10px;
+    text-align: right;
+}
+
+.receipt-header, .receipt-footer {
+    text-align: center;
+}
+
+.receipt-footer {
+    color: #777;
+    font-size: 0.9rem;
+    margin-top: 20px;
+}
+
+/* ----------------- تنسيقات الطباعة الحرارية 58mm ----------------- */
 @media print {
     @page {
         margin: 0;
@@ -92,8 +207,14 @@ body {
         font-size: 11px;
     }
 
-    .no-print, #sidebar, #overlay, header, .menu-btn, .btn, #connectionStatus {
+    /* إخفاء كل شيء باستثناء الوصل */
+    .no-print {
         display: none !important;
+    }
+
+    .main-content {
+        padding: 0;
+        margin: 0;
     }
 
     .card {
@@ -104,9 +225,8 @@ body {
     }
 
     table {
-        width: 100%;
-        border-collapse: collapse;
         margin-top: 5px;
+        margin-bottom: 5px;
     }
 
     th, td {
@@ -116,20 +236,15 @@ body {
         font-size: 10px;
     }
 
-    th {
-        font-weight: bold;
-    }
-
     .receipt-header {
-        text-align: center;
-        margin-bottom: 10px;
         border-bottom: 2px solid #000;
         padding-bottom: 5px;
+        margin-bottom: 10px;
     }
     
     .receipt-footer {
-        text-align: center;
         margin-top: 10px;
         font-size: 9px;
+        color: #000;
     }
 }
