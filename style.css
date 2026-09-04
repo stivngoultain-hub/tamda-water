@@ -1,4 +1,4 @@
-root {
+:root {
     --primary-blue: #1b6393;
     --secondary-cyan: #3399a5;
     --accent-green: #92c13f;
@@ -56,6 +56,12 @@ header h2 { margin: 0; font-size: 1.3rem; }
 .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.05rem; align-items: center; }
 .text-danger { color: var(--danger-red); font-weight: bold; }
 .text-success { color: var(--accent-green); font-weight: bold; }
+
+/* الفئات الديناميكية المساعدة لحالة الفواتير */
+.text-danger-red { color: var(--danger-red) !important; }
+.text-accent-green { color: var(--accent-green) !important; }
+.border-red { border-right: 4px solid var(--danger-red) !important; }
+.border-green { border-right: 4px solid var(--accent-green) !important; }
 
 .form-group { margin-bottom: 15px; text-align: right; }
 .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--primary-blue); }
