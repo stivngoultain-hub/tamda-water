@@ -370,12 +370,29 @@ async function loadDataFromCloud() {
 
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
-// الدالة المحدثة لطباعة مربع الفاتورة فقط عبر إضافة كلاس الطباعة الحرارية
+// --------- التحديث الجذري للطباعة الحرارية ---------
 function printThermalBill() {
-    document.body.classList.add('print-mode-thermal');
+    // 1. إنشاء حاوية مؤقتة ومعزولة لعملية الطباعة
+    const printContainer = document.createElement('div');
+    printContainer.id = 'temp-print-container';
+    
+    // 2. نسخ المربع الأحمر (محتوى الفاتورة) كما هو
+    const billContent = document.getElementById('billResult').innerHTML;
+    printContainer.innerHTML = billContent;
+    
+    // 3. إضافة الحاوية مباشرة لجسد الصفحة (Body) لمنع أي تداخل مع الطبقات الأخرى
+    document.body.appendChild(printContainer);
+    
+    // 4. إضافة الكلاس المسؤول عن إخفاء الموقع وإظهار الفاتورة فقط
+    document.body.classList.add('print-mode-thermal-direct');
+    
+    // 5. إطلاق نافذة الطباعة
     window.print();
-    setTimeout(() => { 
-        document.body.classList.remove('print-mode-thermal'); 
+    
+    // 6. مسح الحاوية المؤقتة وإعادة الصفحة لوضعها الطبيعي فور الإغلاق
+    setTimeout(() => {
+        document.body.classList.remove('print-mode-thermal-direct');
+        printContainer.remove();
     }, 500);
 }
 
@@ -491,10 +508,8 @@ function renderSubPortalBills() {
     let myBills = archiveBills.filter(b => b.counter == subCounter); myBills.sort((a,b) => b.month.localeCompare(a.month)); 
     if(myBills.length === 0) return container.innerHTML = '<p>لا توجد فواتير مسجلة في الأرشيف لعدادك حتى الآن.</p>';
     myBills.forEach(b => {
-        let isPaid = (b.status === 'خالصة' || b.status === 'paid' || b.status === 'خالص'); 
-        let statusText = isPaid ? 'خالصة' : 'دين';
-        let color = isPaid ? 'var(--accent-green)' : 'var(--danger-red)';
-        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">شهر: ${b.month} | المبلغ: ${b.total} درهم</strong><span>الاستهلاك: ${b.consumption} m³ | الوضعية: <strong style="color: ${color}">${statusText}</strong> ${b.isExempt ? '(إعفاء)' : ''}</span></div></div>`;
+        let isPaid = b.status === 'خالصة'; let color = isPaid ? 'var(--accent-green)' : 'var(--danger-red)';
+        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">شهر: ${b.month} | المبلغ: ${b.total} درهم</strong><span>الاستهلاك: ${b.consumption} m³ | الوضعية: <strong style="color: ${color}">${b.status}</strong> ${b.isExempt ? '(إعفاء)' : ''}</span></div></div>`;
     });
 }
 
@@ -593,6 +608,7 @@ async function deleteCapitalEntry(id) {
     } 
 }
 
+// ================== سجل التبرعات ==================
 async function saveDonation() { 
     const month = document.getElementById('donationMonth').value; 
     const name = document.getElementById('donationName').value.trim(); 
@@ -969,32 +985,17 @@ async function collectDebt(firestoreId, amount, counter, name) {
     if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت');
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
         try {
-            let sub = subscribers.find(s => s.firestoreId === firestoreId); 
-            if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
-            
+            let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
             let nowMonth = new Date().toISOString().slice(0, 7); 
             let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
             
             let transRef = await addDoc(collection(db, "transactions"), newTrans); 
             newTrans.firestoreId = transRef.id;
             await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
+            
             transactionsList.push(newTrans); 
-            
-            let unpaidBills = archiveBills.filter(b => b.counter === counter && b.status === 'دين');
-            for (let bill of unpaidBills) {
-                bill.status = 'خالصة';
-                if(bill.firestoreId && !bill.firestoreId.startsWith('local_')) {
-                    await updateDoc(doc(db, "archive_bills", bill.firestoreId), { status: 'خالصة' });
-                }
-            }
-
-            recalculateFinancials(); 
-            saveLocalData(); 
-            showToast('تم الاستخلاص بنجاح وتحديث الفواتير إلى "خالصة"!'); 
-            
-            renderDebts(); 
-            updateFinancialDashboard(); 
-            renderArchive(); 
+            recalculateFinancials(); saveLocalData(); 
+            showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
         } catch(e) { console.error(e); showToast('❌ فشل الاستخلاص'); }
     } 
 }
@@ -1020,8 +1021,7 @@ function renderArchive() {
             html += `<table class="archive-table"><thead><tr><th>رقم العداد والاسم</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; 
             monthBills.forEach(b => { 
                 let subscriberName = b.name || 'غير مسجل';
-                let isPaid = (b.status === 'خالصة' || b.status === 'paid');
-                html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td style="color:${isPaid ? 'var(--accent-green)' : 'var(--danger-red)'}; font-weight:bold;">${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
+                html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
             }); 
             html += `</tbody></table>`; 
         } 
