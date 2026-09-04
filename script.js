@@ -370,6 +370,45 @@ async function loadDataFromCloud() {
 
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
+// الدالة الجديدة للطباعة الحرارية
+function printThermalBill() {
+    // 1. نقل البيانات من واجهة الفاتورة إلى قالب التوصيل المصغر
+    document.getElementById('tr-month').textContent = document.getElementById('printMonth').textContent;
+    document.getElementById('tr-counter').textContent = document.getElementById('printCounter').textContent;
+    document.getElementById('tr-name').textContent = document.getElementById('printName').textContent;
+    
+    document.getElementById('tr-prev').textContent = document.getElementById('printPrev').textContent;
+    document.getElementById('tr-curr').textContent = document.getElementById('printCurr').textContent;
+    document.getElementById('tr-consumption').textContent = document.getElementById('consumptionResult').textContent;
+    
+    document.getElementById('tr-maintenance').textContent = document.getElementById('printMaintenance').textContent;
+    document.getElementById('tr-cost').textContent = document.getElementById('consumptionPriceResult').textContent;
+    
+    let penaltyValue = document.getElementById('printPenalty').textContent;
+    let penaltyRowDisplay = document.getElementById('penaltyRow').style.display;
+    if (penaltyRowDisplay !== 'none' && penaltyValue !== '') {
+        document.getElementById('tr-penalty-row').style.display = 'flex';
+        document.getElementById('tr-penalty').textContent = penaltyValue;
+    } else {
+        document.getElementById('tr-penalty-row').style.display = 'none';
+    }
+    
+    document.getElementById('tr-total').textContent = document.getElementById('totalPriceResult').textContent;
+    
+    // وضع تاريخ ووقت الطباعة
+    let now = new Date();
+    document.getElementById('tr-date').textContent = now.toLocaleDateString('ar-MA') + ' - ' + now.toLocaleTimeString('ar-MA');
+
+    // 2. إطلاق وضع الطباعة الحرارية
+    document.body.classList.add('print-mode-thermal');
+    window.print();
+    
+    // 3. إزالة وضع الطباعة بعد نصف ثانية للعودة للشاشة الطبيعية
+    setTimeout(() => { 
+        document.body.classList.remove('print-mode-thermal'); 
+    }, 500);
+}
+
 function renderMemberActivityStats() {
     const container = document.getElementById('standaloneMemberActivity'); if(!container) return;
     let currentMonth = new Date().toISOString().slice(0, 7);
@@ -826,7 +865,6 @@ function getNextMonth(monthString) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
-// ✅ دالة حساب الفاتورة المضبوطة بالكامل حسب طلبك (النظام القديم: 20، 10 بأثمنة 3، 5، 7 | النظام الجديد: 15، 5 بأثمنة الإعدادات)
 function calculateBill() { 
     const counterNumInput = document.getElementById('counterNum').value.trim(); 
     const subName = document.getElementById('subscriberName').value || 'غير محدد'; 
@@ -867,7 +905,6 @@ function calculateBill() {
     let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; 
     
     if (tariffSystem === 'old') { 
-        // النظام القديم: الشطر الأول 20 متر، الشطر الثاني 10 أمتار (حتى 30)، وما زاد شطر ثالث (أسعار ثابتة: 3, 5, 7) وصيانة 15 درهم
         maintenance = 15; 
         if (consumption <= 20) { 
             currentT1 = consumption; 
@@ -883,7 +920,6 @@ function calculateBill() {
         t2_cost = currentT2 * 5; 
         t3_cost = currentT3 * 7; 
     } else { 
-        // النظام الجديد: الشطر الأول 15 متر، الشطر الثاني 5 أمتار (حتى 20)، وما زاد شطر ثالث (حسب إعدادات التطبيق)
         maintenance = appSettings.maintenance; 
         if (consumption <= 15) { 
             currentT1 = consumption; 
@@ -1040,4 +1076,4 @@ async function deleteArchiveFinance(id) {
 function toggleStatInputs() { const type = document.getElementById('statTypeSelect').value; document.getElementById('monthInputGroup').style.display = (type === 'monthly') ? 'block' : 'none'; document.getElementById('yearInputGroup').style.display = (type === 'yearly') ? 'block' : 'none'; renderAdvancedStats(); }
 function renderAdvancedStats() { const container = document.getElementById('statsContainer'); if(!container) return; const type = document.getElementById('statTypeSelect').value; let filteredBills = []; let periodTitle = ''; if (type === 'monthly') { const monthSelect = document.getElementById('statsMonthSelect'); if(!monthSelect.value) { let now = new Date(); monthSelect.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'); } filteredBills = archiveBills.filter(b => b.month === monthSelect.value); periodTitle = `شهر: ${monthSelect.value}`; } else { const yearSelect = document.getElementById('statsYearSelect'); filteredBills = archiveBills.filter(b => b.month && b.month.startsWith(yearSelect.value)); periodTitle = `سنة: ${yearSelect.value}`; } if(filteredBills.length === 0) return container.innerHTML = `<p style="margin-top:15px; color:#666;">لا توجد بيانات لـ (${periodTitle}).</p>`; let totalWater = 0, totalT1 = 0, totalT2 = 0, totalT3 = 0, maxConsumption = -1, topConsumer = '---'; filteredBills.forEach(b => { let cons = Number(b.consumption || 0); totalWater += cons; totalT1 += Number(b.t1 || 0); totalT2 += Number(b.t2 || 0); totalT3 += Number(b.t3 || 0); if(cons > maxConsumption) { maxConsumption = cons; topConsumer = `عداد (${b.counter}) ${b.name} (${cons} m³)`; } }); let p1 = totalWater > 0 ? Math.round((totalT1 / totalWater) * 100) : 0; let p2 = totalWater > 0 ? Math.round((totalT2 / totalWater) * 100) : 0; let p3 = totalWater > 0 ? Math.round((totalT3 / totalWater) * 100) : 0; container.innerHTML = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;"><div class="stat-row"><span>الاستهلاك (${periodTitle}):</span><strong style="color:var(--primary-blue); font-size:1.2rem;">${totalWater} m³</strong></div><div class="stat-row"><span>الأكثر استهلاكاً:</span><strong class="text-danger">${topConsumer}</strong></div><h4 style="margin:10px 0 5px 0; color:var(--primary-blue);">📈 مبيانات الأشطر:</h4><div class="chart-container"><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الأول</span><span>${p1}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p1}%; background: var(--accent-green);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثاني</span><span>${p2}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p2}%; background: var(--secondary-cyan);"></div></div></div><div class="chart-bar-wrap"><div class="chart-bar-label"><span>الشطر الثالث</span><span>${p3}%</span></div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${p3}%; background: var(--danger-red);"></div></div></div></div></div>`; }
 
-window.checkAuth = checkAuth; window.handleEnter = handleEnter; window.authenticate = authenticate; window.logout = logout; window.toggleSidebar = toggleSidebar; window.showToast = showToast; window.navigateTo = navigateTo; window.printDonations = printDonations; window.saveSubscriber = saveSubscriber; window.editSubscriber = editSubscriber; window.resetSubForm = resetSubForm; window.renderSubscribers = renderSubscribers; window.generateAndSendPIN = generateAndSendPIN; window.deleteSubscriber = deleteSubscriber; window.renderSubPortalBills = renderSubPortalBills; window.submitComplaint = submitComplaint; window.renderAdminComplaints = renderAdminComplaints; window.markComplaintRead = markComplaintRead; window.deleteComplaint = deleteComplaint; window.saveDonation = saveDonation; window.renderDonations = renderDonations; window.deleteDonation = deleteDonation; window.updateFinancialDashboard = updateFinancialDashboard; window.saveTransaction = saveTransaction; window.renderTransactions = renderTransactions; window.deleteTransaction = deleteTransaction; window.uploadFinancialPDF = uploadFinancialPDF; window.renderPDFReportsList = renderPDFReportsList; window.deletePDFReport = deletePDFReport; window.calculateBill = calculateBill; window.saveBill = saveBill; window.sendWhatsAppNotification = sendWhatsAppNotification; window.autoFillSubscriber = autoFillSubscriber; window.enableEdit = enableEdit; window.renderDebts = renderDebts; window.collectDebt = collectDebt; window.renderArchive = renderArchive; window.deleteArchiveBill = deleteArchiveBill; window.deleteArchiveFinance = deleteArchiveFinance; window.toggleStatInputs = toggleStatInputs; window.renderAdvancedStats = renderAdvancedStats; window.addManualCapital = addManualCapital; window.renderCapital = renderCapital; window.deleteCapitalEntry = deleteCapitalEntry; window.saveBylaws = saveBylaws; window.saveSettings = saveSettings;
+window.checkAuth = checkAuth; window.handleEnter = handleEnter; window.authenticate = authenticate; window.logout = logout; window.toggleSidebar = toggleSidebar; window.showToast = showToast; window.navigateTo = navigateTo; window.printDonations = printDonations; window.printThermalBill = printThermalBill; window.saveSubscriber = saveSubscriber; window.editSubscriber = editSubscriber; window.resetSubForm = resetSubForm; window.renderSubscribers = renderSubscribers; window.generateAndSendPIN = generateAndSendPIN; window.deleteSubscriber = deleteSubscriber; window.renderSubPortalBills = renderSubPortalBills; window.submitComplaint = submitComplaint; window.renderAdminComplaints = renderAdminComplaints; window.markComplaintRead = markComplaintRead; window.deleteComplaint = deleteComplaint; window.saveDonation = saveDonation; window.renderDonations = renderDonations; window.deleteDonation = deleteDonation; window.updateFinancialDashboard = updateFinancialDashboard; window.saveTransaction = saveTransaction; window.renderTransactions = renderTransactions; window.deleteTransaction = deleteTransaction; window.uploadFinancialPDF = uploadFinancialPDF; window.renderPDFReportsList = renderPDFReportsList; window.deletePDFReport = deletePDFReport; window.calculateBill = calculateBill; window.saveBill = saveBill; window.sendWhatsAppNotification = sendWhatsAppNotification; window.autoFillSubscriber = autoFillSubscriber; window.enableEdit = enableEdit; window.renderDebts = renderDebts; window.collectDebt = collectDebt; window.renderArchive = renderArchive; window.deleteArchiveBill = deleteArchiveBill; window.deleteArchiveFinance = deleteArchiveFinance; window.toggleStatInputs = toggleStatInputs; window.renderAdvancedStats = renderAdvancedStats; window.addManualCapital = addManualCapital; window.renderCapital = renderCapital; window.deleteCapitalEntry = deleteCapitalEntry; window.saveBylaws = saveBylaws; window.saveSettings = saveSettings;
