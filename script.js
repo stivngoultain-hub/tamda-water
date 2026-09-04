@@ -370,36 +370,13 @@ async function loadDataFromCloud() {
 
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
+// الدالة المحدثة لطباعة مربع الفاتورة فقط عبر إضافة كلاس الطباعة الحرارية
 function printThermalBill() {
-    document.getElementById('tr-month').textContent = document.getElementById('printMonth').textContent;
-    document.getElementById('tr-counter').textContent = document.getElementById('printCounter').textContent;
-    document.getElementById('tr-name').textContent = document.getElementById('printName').textContent;
-    
-    document.getElementById('tr-prev').textContent = document.getElementById('printPrev').textContent;
-    document.getElementById('tr-curr').textContent = document.getElementById('printCurr').textContent;
-    document.getElementById('tr-consumption').textContent = document.getElementById('consumptionResult').textContent;
-    
-    document.getElementById('tr-maintenance').textContent = document.getElementById('printMaintenance').textContent;
-    document.getElementById('tr-cost').textContent = document.getElementById('consumptionPriceResult').textContent;
-    
-    let penaltyValue = document.getElementById('printPenalty').textContent;
-    let penaltyRowDisplay = document.getElementById('penaltyRow').style.display;
-    if (penaltyRowDisplay !== 'none' && penaltyValue !== '') {
-        document.getElementById('tr-penalty-row').style.display = 'flex';
-        document.getElementById('tr-penalty').textContent = penaltyValue;
-    } else {
-        document.getElementById('tr-penalty-row').style.display = 'none';
-    }
-    
-    document.getElementById('tr-total').textContent = document.getElementById('totalPriceResult').textContent;
-    
-    let now = new Date();
-    document.getElementById('tr-date').textContent = now.toLocaleDateString('ar-MA') + ' - ' + now.toLocaleTimeString('ar-MA');
-
     document.body.classList.add('print-mode-thermal');
     window.print();
-    
-    setTimeout(() => { document.body.classList.remove('print-mode-thermal'); }, 500);
+    setTimeout(() => { 
+        document.body.classList.remove('print-mode-thermal'); 
+    }, 500);
 }
 
 function renderMemberActivityStats() {
@@ -507,7 +484,6 @@ async function deleteSubscriber(id) {
     } 
 }
 
-// تعديل الدالة المسؤولة عن عرض فواتير المنخرط لتستجيب للحالة الجديدة
 function renderSubPortalBills() {
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname'); if(!subCounter) return;
     document.getElementById('portalSubName').textContent = subName; document.getElementById('portalSubCounter').textContent = subCounter;
@@ -988,17 +964,14 @@ function enableEdit(elementId) { document.getElementById(elementId).removeAttrib
 
 function renderDebts() { const container = document.getElementById('debtsListContainer'); if(!container) return; container.innerHTML = ''; const debtors = subscribers.filter(s => Number(s.debtAmount) > 0); debtors.sort((a, b) => Number(a.counter) - Number(b.counter)); if(debtors.length === 0) return container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً.</p>'; debtors.forEach((sub) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:var(--danger-red);">عداد (${sub.counter}): ${sub.name}</strong><span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span></div><div><button class="pay-btn" onclick="collectDebt('${sub.firestoreId}', ${sub.debtAmount}, '${sub.counter}', '${sub.name}')">💵 استخلاص</button></div>`; container.appendChild(div); }); }
 
-// التحديث الرئيسي هنا لمعالجة الخلل
 async function collectDebt(firestoreId, amount, counter, name) { 
     if(!firestoreId || firestoreId.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت');
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
         try {
-            // 1. تصفير ديون المنخرط في قاعدة بيانات المنخرطين
             let sub = subscribers.find(s => s.firestoreId === firestoreId); 
             if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
             
-            // 2. تسجيل العملية المالية كمدخول
             let nowMonth = new Date().toISOString().slice(0, 7); 
             let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
             
@@ -1007,7 +980,6 @@ async function collectDebt(firestoreId, amount, counter, name) {
             await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
             transactionsList.push(newTrans); 
             
-            // 3. التحديث المفقود: تحديث جميع فواتير هذا العداد من "دين" إلى "خالصة"
             let unpaidBills = archiveBills.filter(b => b.counter === counter && b.status === 'دين');
             for (let bill of unpaidBills) {
                 bill.status = 'خالصة';
@@ -1020,7 +992,6 @@ async function collectDebt(firestoreId, amount, counter, name) {
             saveLocalData(); 
             showToast('تم الاستخلاص بنجاح وتحديث الفواتير إلى "خالصة"!'); 
             
-            // تحديث كافة الواجهات المتأثرة
             renderDebts(); 
             updateFinancialDashboard(); 
             renderArchive(); 
