@@ -1,4 +1,4 @@
-:root {
+root {
     --primary-blue: #1b6393;
     --secondary-cyan: #3399a5;
     --accent-green: #92c13f;
@@ -93,10 +93,31 @@ header h2 { margin: 0; font-size: 1.3rem; }
 
 @media print {
     body * { visibility: hidden; }
+    
+    /* للطباعة العادية الخاصة بالتبرعات والأرشيف */
     body.print-mode-donations #view-donations, body.print-mode-donations #view-donations * { visibility: visible; }
     body.print-mode-donations #view-donations { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
-    body:not(.print-mode-donations) #view-archive, body:not(.print-mode-donations) #view-archive * { visibility: visible; }
-    body:not(.print-mode-donations) #view-reports, body:not(.print-mode-donations) #view-reports * { visibility: visible; }
-    body:not(.print-mode-donations) #view-archive { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
+    
+    body:not(.print-mode-donations):not(.print-mode-thermal) #view-archive, body:not(.print-mode-donations):not(.print-mode-thermal) #view-archive * { visibility: visible; }
+    body:not(.print-mode-donations):not(.print-mode-thermal) #view-reports, body:not(.print-mode-donations):not(.print-mode-thermal) #view-reports * { visibility: visible; }
+    body:not(.print-mode-donations):not(.print-mode-thermal) #view-archive { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
+    
     .no-print, .toast, header, .sidebar, .overlay { display: none !important; }
+    
+    /* للطباعة الحرارية المصغرة (التوصيل) */
+    body.print-mode-thermal #thermalReceipt, 
+    body.print-mode-thermal #thermalReceipt * { visibility: visible; }
+    body.print-mode-thermal #thermalReceipt {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 58mm; /* عرض الطابعة الحرارية الصغير */
+        padding: 5px;
+        margin: 0;
+        background: white;
+        color: black;
+        font-family: monospace, sans-serif;
+        display: block !important;
+    }
+    body.print-mode-thermal #appContent { display: none !important; }
 }
