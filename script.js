@@ -370,9 +370,7 @@ async function loadDataFromCloud() {
 
 function printDonations() { document.body.classList.add('print-mode-donations'); window.print(); setTimeout(() => { document.body.classList.remove('print-mode-donations'); }, 500); }
 
-// الدالة الجديدة للطباعة الحرارية
 function printThermalBill() {
-    // 1. نقل البيانات من واجهة الفاتورة إلى قالب التوصيل المصغر
     document.getElementById('tr-month').textContent = document.getElementById('printMonth').textContent;
     document.getElementById('tr-counter').textContent = document.getElementById('printCounter').textContent;
     document.getElementById('tr-name').textContent = document.getElementById('printName').textContent;
@@ -395,18 +393,13 @@ function printThermalBill() {
     
     document.getElementById('tr-total').textContent = document.getElementById('totalPriceResult').textContent;
     
-    // وضع تاريخ ووقت الطباعة
     let now = new Date();
     document.getElementById('tr-date').textContent = now.toLocaleDateString('ar-MA') + ' - ' + now.toLocaleTimeString('ar-MA');
 
-    // 2. إطلاق وضع الطباعة الحرارية
     document.body.classList.add('print-mode-thermal');
     window.print();
     
-    // 3. إزالة وضع الطباعة بعد نصف ثانية للعودة للشاشة الطبيعية
-    setTimeout(() => { 
-        document.body.classList.remove('print-mode-thermal'); 
-    }, 500);
+    setTimeout(() => { document.body.classList.remove('print-mode-thermal'); }, 500);
 }
 
 function renderMemberActivityStats() {
@@ -514,6 +507,7 @@ async function deleteSubscriber(id) {
     } 
 }
 
+// تعديل الدالة المسؤولة عن عرض فواتير المنخرط لتستجيب للحالة الجديدة
 function renderSubPortalBills() {
     let subCounter = localStorage.getItem('tamda_counter'); let subName = localStorage.getItem('tamda_subname'); if(!subCounter) return;
     document.getElementById('portalSubName').textContent = subName; document.getElementById('portalSubCounter').textContent = subCounter;
@@ -521,8 +515,10 @@ function renderSubPortalBills() {
     let myBills = archiveBills.filter(b => b.counter == subCounter); myBills.sort((a,b) => b.month.localeCompare(a.month)); 
     if(myBills.length === 0) return container.innerHTML = '<p>لا توجد فواتير مسجلة في الأرشيف لعدادك حتى الآن.</p>';
     myBills.forEach(b => {
-        let isPaid = b.status === 'خالصة'; let color = isPaid ? 'var(--accent-green)' : 'var(--danger-red)';
-        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">شهر: ${b.month} | المبلغ: ${b.total} درهم</strong><span>الاستهلاك: ${b.consumption} m³ | الوضعية: <strong style="color: ${color}">${b.status}</strong> ${b.isExempt ? '(إعفاء)' : ''}</span></div></div>`;
+        let isPaid = (b.status === 'خالصة' || b.status === 'paid' || b.status === 'خالص'); 
+        let statusText = isPaid ? 'خالصة' : 'دين';
+        let color = isPaid ? 'var(--accent-green)' : 'var(--danger-red)';
+        container.innerHTML += `<div class="list-item" style="border-right-color: ${color}"><div class="list-info"><strong style="color: ${color}">شهر: ${b.month} | المبلغ: ${b.total} درهم</strong><span>الاستهلاك: ${b.consumption} m³ | الوضعية: <strong style="color: ${color}">${statusText}</strong> ${b.isExempt ? '(إعفاء)' : ''}</span></div></div>`;
     });
 }
 
@@ -621,7 +617,6 @@ async function deleteCapitalEntry(id) {
     } 
 }
 
-// ================== سجل التبرعات ==================
 async function saveDonation() { 
     const month = document.getElementById('donationMonth').value; 
     const name = document.getElementById('donationName').value.trim(); 
@@ -993,22 +988,42 @@ function enableEdit(elementId) { document.getElementById(elementId).removeAttrib
 
 function renderDebts() { const container = document.getElementById('debtsListContainer'); if(!container) return; container.innerHTML = ''; const debtors = subscribers.filter(s => Number(s.debtAmount) > 0); debtors.sort((a, b) => Number(a.counter) - Number(b.counter)); if(debtors.length === 0) return container.innerHTML = '<p class="text-success" style="font-weight:bold;">لا توجد ديون مسجلة حالياً.</p>'; debtors.forEach((sub) => { const div = document.createElement('div'); div.className = 'list-item'; div.style.borderRightColor = 'var(--danger-red)'; div.innerHTML = `<div class="list-info"><strong style="color:var(--danger-red);">عداد (${sub.counter}): ${sub.name}</strong><span>المبلغ المتبقي: <strong>${sub.debtAmount} درهم</strong> | تأخير: ${sub.delayMonths} أشهر</span></div><div><button class="pay-btn" onclick="collectDebt('${sub.firestoreId}', ${sub.debtAmount}, '${sub.counter}', '${sub.name}')">💵 استخلاص</button></div>`; container.appendChild(div); }); }
 
+// التحديث الرئيسي هنا لمعالجة الخلل
 async function collectDebt(firestoreId, amount, counter, name) { 
     if(!firestoreId || firestoreId.startsWith('local_')) { showToast('⚠️ عنصر غير متزامن'); return; }
     if(!navigator.onLine) return showToast('⚠️ يلزم الاتصال بالإنترنت');
     if(confirm(`هل تؤكد استخلاص مبلغ الدين (${amount} درهم)؟`)) { 
         try {
-            let sub = subscribers.find(s => s.firestoreId === firestoreId); if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
+            // 1. تصفير ديون المنخرط في قاعدة بيانات المنخرطين
+            let sub = subscribers.find(s => s.firestoreId === firestoreId); 
+            if(sub) { sub.debtAmount = 0; sub.delayMonths = 0; } 
+            
+            // 2. تسجيل العملية المالية كمدخول
             let nowMonth = new Date().toISOString().slice(0, 7); 
             let newTrans = { month: nowMonth, type: 'income', amount: Number(amount), desc: `استخلاص دين متأخر - عداد: ${counter}`, fileName: '', timestamp: new Date().toISOString() }; 
             
             let transRef = await addDoc(collection(db, "transactions"), newTrans); 
             newTrans.firestoreId = transRef.id;
             await updateDoc(doc(db, "subscribers", firestoreId), { debtAmount: 0, delayMonths: 0 }); 
-            
             transactionsList.push(newTrans); 
-            recalculateFinancials(); saveLocalData(); 
-            showToast('تم الاستخلاص بنجاح!'); renderDebts(); updateFinancialDashboard(); 
+            
+            // 3. التحديث المفقود: تحديث جميع فواتير هذا العداد من "دين" إلى "خالصة"
+            let unpaidBills = archiveBills.filter(b => b.counter === counter && b.status === 'دين');
+            for (let bill of unpaidBills) {
+                bill.status = 'خالصة';
+                if(bill.firestoreId && !bill.firestoreId.startsWith('local_')) {
+                    await updateDoc(doc(db, "archive_bills", bill.firestoreId), { status: 'خالصة' });
+                }
+            }
+
+            recalculateFinancials(); 
+            saveLocalData(); 
+            showToast('تم الاستخلاص بنجاح وتحديث الفواتير إلى "خالصة"!'); 
+            
+            // تحديث كافة الواجهات المتأثرة
+            renderDebts(); 
+            updateFinancialDashboard(); 
+            renderArchive(); 
         } catch(e) { console.error(e); showToast('❌ فشل الاستخلاص'); }
     } 
 }
@@ -1034,7 +1049,8 @@ function renderArchive() {
             html += `<table class="archive-table"><thead><tr><th>رقم العداد والاسم</th><th>الاستهلاك (m³)</th><th>الثمن (درهم)</th><th>الوضع</th><th class="no-print">إجراءات</th></tr></thead><tbody>`; 
             monthBills.forEach(b => { 
                 let subscriberName = b.name || 'غير مسجل';
-                html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td>${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
+                let isPaid = (b.status === 'خالصة' || b.status === 'paid');
+                html += `<tr><td><strong>${b.counter}</strong> - ${subscriberName}</td><td>${b.consumption}</td><td>${b.total}</td><td style="color:${isPaid ? 'var(--accent-green)' : 'var(--danger-red)'}; font-weight:bold;">${b.status} ${b.isExempt ? '(إعفاء)' : ''}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; 
             }); 
             html += `</tbody></table>`; 
         } 
