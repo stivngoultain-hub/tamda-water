@@ -35,7 +35,7 @@ body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: h
 #appContent { display: none; padding-top: 50px; }
 .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; margin-top: 20px; }
 .menu-btn { font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--primary-blue); }
-.main-container { padding: 0 15px 30px 15px; max-width: 1000px; margin: 0 auto; }
+.main-container { padding: 0 15px 30px 15px; max-width: 1000px; margin: 0 auto; overflow-x: hidden; }
 
 .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); }
 .card-title { color: var(--primary-blue); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
@@ -64,11 +64,14 @@ body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: h
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
 .stat-card { background: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: var(--card-shadow); border-bottom: 3px solid var(--primary-blue); }
 
-.archive-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; }
+.archive-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; min-width: 500px; /* ضمان عدم انهيار الجدول في الشاشات الصغيرة */ }
 .archive-table th, .archive-table td { border: 1px solid #ddd; padding: 8px 12px; text-align: right; }
 .archive-table th { background-color: var(--bg-light); color: var(--primary-blue); }
 .text-danger { color: var(--danger-red); font-weight: bold; }
 .text-success { color: var(--accent-green); font-weight: bold; }
+
+/* غلاف الجدول لمنع التداخل */
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 @media print {
     #sidebar, #overlay, .header, .menu-btn, .no-print, .btn, .card-title, #connectionStatus, .toast { display: none !important; }
