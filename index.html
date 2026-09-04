@@ -4,59 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>جمعية تامدة للتنمية</title>
-    <!-- استدعاء خط تجوال المطابق لملف CSS -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- الواجهة التي ستظهر على الشاشة وتختفي عند الطباعة بفضل كلاس no-print -->
-    <div class="no-print" style="padding: 20px; max-width: 600px; margin: 20px auto;">
-        <div class="card">
-            <h2 class="card-title">نظام إدارة الأداءات</h2>
-            <p style="margin-bottom: 20px;">يرجى مراجعة بيانات الوصل قبل إعطاء أمر الطباعة.</p>
-            
-            <!-- الأزرار متوافقة مع المتغيرات --primary-cyan و --danger-red -->
-            <button class="btn btn-primary" onclick="window.print()">🖨️ طباعة الوصل</button>
-            <button class="btn btn-danger">إلغاء العملية</button>
+    <!-- الشريط العلوي -->
+    <header class="header no-print">
+        <div class="header-right">
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <h1 class="app-title">تامدة للتنمية 💧</h1>
         </div>
-    </div>
+        <div class="header-left">
+            <span class="status-badge" id="connectionStatus">متصل</span>
+        </div>
+    </header>
 
-    <!-- هيكل الوصل المخصص للطباعة الحرارية (58mm) -->
-    <div class="card" id="receiptCard" style="max-width: 300px; margin: 0 auto;">
-        <div class="receipt-header">
-            <h3>جمعية تامدة للتنمية</h3>
-            <p>وصل استلام / أداء</p>
-        </div>
+    <!-- القائمة الجانبية -->
+    <aside class="sidebar no-print" id="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="#">🏠 لوحة القيادة</a></li>
+            <li><a href="#">👥 إدارة المشتركين</a></li>
+            <li><a href="#">💧 إدارة العدادات</a></li>
+            <li><a href="#">📊 الإحصائيات</a></li>
+            <li><a href="#">📑 التقارير</a></li>
+            <li><a href="#">💰 المداخيل</a></li>
+            <li><a href="#">📒 الديون</a></li>
+            <li><a href="#">📜 القوانين</a></li>
+            <li><a href="#">🗄️ الأرشيف</a></li>
+            <li><a href="#">⚙️ الإعدادات</a></li>
+            <li><a href="#">🚪 تسجيل الخروج</a></li>
+        </ul>
+    </aside>
+
+    <!-- طبقة التظليل عند فتح القائمة -->
+    <div class="overlay no-print" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="main-content">
         
-        <table>
-            <thead>
-                <tr>
-                    <th>البيان</th>
-                    <th>المبلغ</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>انخراط شهري</td>
-                    <td>50 درهم</td>
-                </tr>
-                <tr>
-                    <td>مساهمة إضافية</td>
-                    <td>20 درهم</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <div class="receipt-footer">
-            <p>شكراً لتعاونكم</p>
-            <p id="receiptDate"></p>
+        <!-- لوحة التحكم بالطباعة (تختفي عند الطباعة) -->
+        <div class="card no-print">
+            <h2 class="card-title">نظام إدارة الأداءات</h2>
+            <p style="margin-bottom: 20px; color: #555;">يرجى مراجعة بيانات الوصل قبل إعطاء أمر الطباعة.</p>
+            
+            <div class="btn-group">
+                <button class="btn btn-danger">إلغاء العملية</button>
+                <button class="btn btn-primary" onclick="window.print()">🖨️ طباعة الوصل</button>
+            </div>
         </div>
-    </div>
+
+        <!-- هيكل الوصل (هذا هو الجزء الوحيد الذي سيتم طباعته) -->
+        <div class="card receipt-card" id="receiptCard">
+            <div class="receipt-header">
+                <h3>جمعية تامدة للتنمية</h3>
+                <p>وصل استلام / أداء</p>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>البيان</th>
+                        <th>المبلغ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>انخراط شهري</td>
+                        <td>50 درهم</td>
+                    </tr>
+                    <tr>
+                        <td>مساهمة إضافية</td>
+                        <td>20 درهم</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="receipt-footer">
+                <p>شكراً لتعاونكم</p>
+                <p id="receiptDate"></p>
+            </div>
+        </div>
+
+    </main>
 
     <script>
-        // إدراج التاريخ والوقت بشكل تلقائي في أسفل الوصل
-        document.getElementById('receiptDate').innerText = new Date().toLocaleString('ar-MA');
+        // دالة فتح وإغلاق القائمة الجانبية
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        // إدراج التاريخ والوقت الحالي في الوصل
+        window.onload = function() {
+            const dateElement = document.getElementById('receiptDate');
+            if (dateElement) {
+                dateElement.innerText = new Date().toLocaleString('ar-MA');
+            }
+        };
     </script>
 </body>
 </html>
