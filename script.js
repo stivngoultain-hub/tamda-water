@@ -826,7 +826,7 @@ function getNextMonth(monthString) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
-// ✅ دالة حساب الفاتورة بعد ضبط النظام القديم (15 متر شطر أول، 5 أمتار شطر ثان) والنظام الجديد (20 متر شطر أول، 10 أمتار شطر ثان) بشكل صحيح 100%
+// ✅ دالة حساب الفاتورة المضبوطة بالكامل حسب طلبك (النظام القديم: 20، 10 بأثمنة 3، 5، 7 | النظام الجديد: 15، 5 بأثمنة الإعدادات)
 function calculateBill() { 
     const counterNumInput = document.getElementById('counterNum').value.trim(); 
     const subName = document.getElementById('subscriberName').value || 'غير محدد'; 
@@ -867,23 +867,7 @@ function calculateBill() {
     let t1_cost = 0, t2_cost = 0, t3_cost = 0, maintenance = 0; 
     
     if (tariffSystem === 'old') { 
-        // النظام القديم الصحيح: الشطر الأول 15 متر، الشطر الثاني 5 أمتار (حتى 20)، وما زاد شطر ثالث
-        maintenance = appSettings.maintenance; 
-        if (consumption <= 15) { 
-            currentT1 = consumption; 
-        } else if (consumption <= 20) { 
-            currentT1 = 15; 
-            currentT2 = consumption - 15; 
-        } else { 
-            currentT1 = 15; 
-            currentT2 = 5; 
-            currentT3 = consumption - 20; 
-        } 
-        t1_cost = currentT1 * appSettings.tier1; 
-        t2_cost = currentT2 * appSettings.tier2; 
-        t3_cost = currentT3 * appSettings.tier3; 
-    } else { 
-        // النظام الجديد الصحيح: الشطر الأول 20 متر، الشطر الثاني 10 أمتار (حتى 30)، وما زاد شطر ثالث (أسعار 3, 5, 7)
+        // النظام القديم: الشطر الأول 20 متر، الشطر الثاني 10 أمتار (حتى 30)، وما زاد شطر ثالث (أسعار ثابتة: 3, 5, 7) وصيانة 15 درهم
         maintenance = 15; 
         if (consumption <= 20) { 
             currentT1 = consumption; 
@@ -898,6 +882,22 @@ function calculateBill() {
         t1_cost = currentT1 * 3; 
         t2_cost = currentT2 * 5; 
         t3_cost = currentT3 * 7; 
+    } else { 
+        // النظام الجديد: الشطر الأول 15 متر، الشطر الثاني 5 أمتار (حتى 20)، وما زاد شطر ثالث (حسب إعدادات التطبيق)
+        maintenance = appSettings.maintenance; 
+        if (consumption <= 15) { 
+            currentT1 = consumption; 
+        } else if (consumption <= 20) { 
+            currentT1 = 15; 
+            currentT2 = consumption - 15; 
+        } else { 
+            currentT1 = 15; 
+            currentT2 = 5; 
+            currentT3 = consumption - 20; 
+        } 
+        t1_cost = currentT1 * appSettings.tier1; 
+        t2_cost = currentT2 * appSettings.tier2; 
+        t3_cost = currentT3 * appSettings.tier3; 
     } 
     
     const consumptionCost = t1_cost + t2_cost + t3_cost; 
