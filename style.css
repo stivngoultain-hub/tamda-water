@@ -13,7 +13,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
     background-color: var(--bg-light); 
     margin: 0; padding: 0; overflow-x: hidden; color: var(--text-dark); 
-    overscroll-behavior-y: contain; /* يمنع تحديث الشاشة عند السحب للأسفل */
+    overscroll-behavior-y: contain;
     touch-action: pan-y;
 }
 
@@ -57,7 +57,6 @@ header h2 { margin: 0; font-size: 1.3rem; }
 .text-danger { color: var(--danger-red); font-weight: bold; }
 .text-success { color: var(--accent-green); font-weight: bold; }
 
-/* الفئات الديناميكية المساعدة لحالة الفواتير */
 .text-danger-red { color: var(--danger-red) !important; }
 .text-accent-green { color: var(--accent-green) !important; }
 .border-red { border-right: 4px solid var(--danger-red) !important; }
@@ -98,6 +97,8 @@ header h2 { margin: 0; font-size: 1.3rem; }
 @keyframes fadeInOut { 0% { opacity: 0; transform: translate(-50%, 20px); } 15% { opacity: 1; transform: translate(-50%, 0); } 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -20px); } }
 
 @media print {
+    @page { margin: 0; size: 58mm auto; }
+    
     body * { visibility: hidden; }
     
     /* للطباعة العادية الخاصة بالتبرعات والأرشيف */
@@ -108,22 +109,40 @@ header h2 { margin: 0; font-size: 1.3rem; }
     body:not(.print-mode-donations):not(.print-mode-thermal) #view-reports, body:not(.print-mode-donations):not(.print-mode-thermal) #view-reports * { visibility: visible; }
     body:not(.print-mode-donations):not(.print-mode-thermal) #view-archive { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; border: none; }
     
-    .no-print, .toast, header, .sidebar, .overlay { display: none !important; }
+    /* ----------------------------------------------------------------- */
+    /* التحديث الجديد: طباعة المربع الأحمر (الفاتورة) فقط مصغراً */
+    /* ----------------------------------------------------------------- */
+    body.print-mode-thermal #billResult, 
+    body.print-mode-thermal #billResult * { visibility: visible; }
     
-    /* للطباعة الحرارية المصغرة (التوصيل) */
-    body.print-mode-thermal #thermalReceipt, 
-    body.print-mode-thermal #thermalReceipt * { visibility: visible; }
-    body.print-mode-thermal #thermalReceipt {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 58mm; /* عرض الطابعة الحرارية الصغير */
-        padding: 5px;
-        margin: 0;
-        background: white;
-        color: black;
-        font-family: monospace, sans-serif;
-        display: block !important;
+    body.print-mode-thermal #billResult {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 58mm !important;
+        padding: 5px !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: 1px dashed #000 !important;
+        background: white !important;
+        color: black !important;
+        border-radius: 0 !important;
     }
-    body.print-mode-thermal #appContent { display: none !important; }
+
+    body.print-mode-thermal #billResult * {
+        font-size: 11px !important;
+        line-height: 1.5 !important;
+    }
+
+    body.print-mode-thermal #billResult .btn,
+    body.print-mode-thermal #billResult button,
+    body.print-mode-thermal #billResult .no-print {
+        display: none !important;
+    }
+    
+    .no-print, .toast, header, .sidebar, .overlay { display: none !important; }
+    body.print-mode-thermal #appContent, body.print-mode-thermal #view-water { 
+        display: block !important; 
+        visibility: visible !important; 
+    } 
 }
