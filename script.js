@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if(localStorage.getItem('tamda_bylaws')) document.getElementById('bylawInput').value = localStorage.getItem('tamda_bylaws');
     if(localStorage.getItem('tamda_darkmode') === 'true') document.body.classList.add('dark-mode');
     
-    let now = new Date(); let m = String(now.getMonth() + 1).padStart(2, '0');
-    if(document.getElementById('billingMonth')) document.getElementById('billingMonth').value = now.getFullYear() + "-" + m;
+    // القفل الذكي لشهر الفوترة
+    determineBillingMonth();
 
     window.addEventListener('online', () => updateOnlineStatus(true));
     window.addEventListener('offline', () => updateOnlineStatus(false));
@@ -50,6 +50,43 @@ document.addEventListener('DOMContentLoaded', () => {
     ['click', 'touchstart', 'keypress', 'scroll'].forEach(evt => document.addEventListener(evt, updateLastActive));
     setInterval(checkSessionTimeout, 10000);
 });
+
+// المنطق الجديد: قفل الشهر حتى الانتهاء من جميع العدادات
+function determineBillingMonth() {
+    let monthInput = document.getElementById('billingMonth');
+    if(!monthInput) return;
+    
+    let now = new Date();
+    let currentMonthStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0');
+    
+    if (subscribers.length === 0 || archiveBills.length === 0) {
+        monthInput.value = currentMonthStr;
+        return;
+    }
+
+    // جلب آخر شهر تم العمل عليه في الأرشيف
+    let months = [...new Set(archiveBills.map(b => b.month))].sort();
+    let lastBilledMonth = months[months.length - 1];
+    
+    let billedInLastMonth = archiveBills.filter(b => b.month === lastBilledMonth).map(b => String(b.counter));
+    let totalSubs = subscribers.map(s => String(s.counter));
+    
+    let unbilledCount = totalSubs.filter(c => !billedInLastMonth.includes(c)).length;
+    
+    if(unbilledCount > 0) {
+        // إذا كان هناك عدادات غير مفوترة، يبقى في نفس الشهر السابق ليكمله
+        monthInput.value = lastBilledMonth;
+    } else {
+        // إذا انتهى من جميع العدادات، ينتقل أوتوماتيكياً للشهر الموالي
+        let [y, m] = lastBilledMonth.split('-');
+        let d = new Date(y, m - 1);
+        d.setMonth(d.getMonth() + 1);
+        monthInput.value = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+    }
+    
+    window.autoAdjustTariff();
+    window.checkUnbilledCounters();
+}
 
 /* Utilities */
 function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
@@ -91,7 +128,7 @@ async function loadDataFromCloud() {
         saveLocalData(); recalculateFinancials();
         
         if(localStorage.getItem('tamda_auth') === 'true' && localStorage.getItem('tamda_role') === 'admin') {
-            renderSubscribers(); renderTransactions(); renderCapital(); renderArchive(); renderDebts(); renderDashboard(); renderMajorExpenses();
+            window.renderSubscribers(); window.renderTransactions(); renderCapital(); window.renderArchive(); window.renderDebts(); renderDashboard(); window.renderMajorExpenses();
         }
     } catch (e) { console.error("Fetch Error:", e); }
     hideLoading();
@@ -128,7 +165,7 @@ function recalculateFinancials() {
 window.toggleLoginCounter = () => { document.getElementById('loginCounter').style.display = document.getElementById('userRole').value === 'subscriber' ? 'block' : 'none'; };
 window.handleEnter = (e) => { if (e.key === 'Enter') window.authenticate(); };
 window.toggleSidebar = () => { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); };
-window.toggleDarkMode = () => { document.body.classList.toggle('dark-mode'); localStorage.setItem('tamda_darkmode', document.body.classList.contains('dark-mode')); if(dashboardChartInstance) renderCharts(); if(perfChartInstance) renderIndicators(); };
+window.toggleDarkMode = () => { document.body.classList.toggle('dark-mode'); localStorage.setItem('tamda_darkmode', document.body.classList.contains('dark-mode')); if(dashboardChartInstance) renderCharts(); if(perfChartInstance) window.renderIndicators(); };
 window.logout = () => { localStorage.clear(); checkAuth(); document.getElementById('sidebar').classList.remove('active'); document.getElementById('overlay').classList.remove('active'); };
 
 window.authenticate = () => {
@@ -165,7 +202,7 @@ function renderDashboard() {
     if(document.getElementById('dashDebts')) document.getElementById('dashDebts').textContent = debts + ' درهم';
 }
 
-/* === المصاريف الكبرى ورفع الملفات === */
+/* === المصاريف الكبرى === */
 window.saveMajorExpense = async () => {
     let date = document.getElementById('majorDate').value; let desc = document.getElementById('majorDesc').value; let amount = parseFloat(document.getElementById('majorAmount').value); let fileInput = document.getElementById('majorFile').files[0];
     if(!date || !desc || !amount) return showToast('يرجى ملء جميع البيانات');
@@ -210,7 +247,7 @@ window.deleteDocument = async (id) => { if(confirm("حذف الوثيقة؟")) {
 window.renderDocuments = () => { let c = document.getElementById('pdfReportsContainer'); if(!c) return; c.innerHTML = ''; if(pdfReportsList.length===0) return c.innerHTML='<p>لا توجد وثائق.</p>'; pdfReportsList.forEach(d => c.innerHTML += `<div class="list-item" style="border-right-color:var(--secondary-cyan);"><div class="list-info"><a href="${d.url}" target="_blank" style="font-weight:bold; color:var(--primary-blue);">📄 ${d.name}</a></div><button class="action-btn no-print" onclick="window.deleteDocument('${d.firestoreId}')">حذف</button></div>`); }
 window.saveBylaws = () => { localStorage.setItem('tamda_bylaws', document.getElementById('bylawInput').value); showToast('تم حفظ القانون الأساسي'); }
 
-/* === المنخرطين (استعادة خاصية توليد الكود) === */
+/* === المنخرطين === */
 window.saveSubscriber = async () => {
     const id = document.getElementById('editingSubId').value; const counter = document.getElementById('newSubCounter').value; const name = document.getElementById('newSubName').value; const phone = document.getElementById('newSubPhone').value; const loc = document.getElementById('newSubLocation').value; const exempt = document.getElementById('newSubAlwaysExempt').checked;
     if(!counter || !name) return showToast('أدخل العداد والاسم'); showLoading();
@@ -251,9 +288,10 @@ window.renderSubscribers = () => {
     });
 }
 
-/* === الفواتير (استعادة سجل العدادات) === */
+/* === الفواتير والمرور التلقائي === */
 window.autoAdjustTariff = () => { let m = document.getElementById('billingMonth').value; if(m) document.getElementById('tariffSystem').value = (m <= "2026-06") ? "old" : "new"; }
-window.checkUnbilledCounters = () => { let m = document.getElementById('billingMonth').value; let a = document.getElementById('unbilledAlertBox'); let l = document.getElementById('unbilledList'); if(!m||!a||!l) return; let b = archiveBills.filter(x=>x.month===m).map(x=>x.counter); let u = subscribers.filter(s=>!b.includes(s.counter)).map(s=>s.counter); if(u.length > 0 && u.length < subscribers.length) { l.textContent = u.join("، "); a.style.display='block'; } else a.style.display='none'; }
+window.checkUnbilledCounters = () => { let m = document.getElementById('billingMonth').value; let a = document.getElementById('unbilledAlertBox'); let l = document.getElementById('unbilledList'); if(!m||!a||!l) return; let b = archiveBills.filter(x=>x.month===m).map(x=>String(x.counter)); let u = subscribers.filter(s=>!b.includes(String(s.counter))).map(s=>s.counter); if(u.length > 0 && u.length < subscribers.length) { l.textContent = u.join("، "); a.style.display='block'; } else a.style.display='none'; }
+
 window.autoFillSubscriber = () => {
     let c = document.getElementById('counterNum').value; let s = subscribers.find(x=>x.counter==c);
     if(s) { 
@@ -284,6 +322,8 @@ window.calculateBill = () => {
     document.getElementById('printMonth').textContent=m; document.getElementById('printName').textContent=document.getElementById('subscriberName').value; document.getElementById('printCounter').textContent=c; document.getElementById('printPrev').textContent=p; document.getElementById('printCurr').textContent=r; document.getElementById('printMaintenance').textContent=maint+'درهم'; document.getElementById('consumptionResult').textContent=cons+'m³'; document.getElementById('totalPriceResult').textContent=currentBillTotal+'درهم';
     document.getElementById('exemptionNotice').style.display = ex ? 'block':'none'; document.getElementById('billResult').style.display='block'; document.getElementById('billActionsContainer').style.display='block';
 }
+
+// دالة حفظ الفاتورة مع التمرير التلقائي الذكي
 window.saveBill = async (isPaid) => {
     let c=document.getElementById('counterNum').value, r=parseFloat(document.getElementById('currReading').value)||0, p=parseFloat(document.getElementById('prevReading').value)||0, m=document.getElementById('billingMonth').value, ex=document.getElementById('exemptionCheck').checked, s=subscribers.find(x=>x.counter==c);
     if(archiveBills.some(b=>b.counter==c && b.month===m)) return showToast('مفوتر!'); showLoading();
@@ -292,26 +332,35 @@ window.saveBill = async (isPaid) => {
         let bRef = await addDoc(collection(db,"archive_bills"), bObj); bObj.firestoreId=bRef.id; archiveBills.push(bObj);
         if(isPaid && currentBillTotal>0) { let tObj = { month:m, type:'income', amount:currentBillTotal, desc:`فاتورة - عداد: ${c}`, createdBy:localStorage.getItem('tamda_role'), timestamp:new Date().toISOString() }; let tRef = await addDoc(collection(db,"transactions"), tObj); tObj.firestoreId=tRef.id; transactionsList.push(tObj); archiveFinance.push(tObj); }
         if(s) { let unpaid = archiveBills.filter(x=>x.counter==c && x.status==='دين'); let dbt=0; unpaid.forEach(x=>dbt+=Number(x.total)); let del=unpaid.length; await updateDoc(doc(db,"subscribers",s.firestoreId), {debtAmount:dbt, delayMonths:del, lastReading:r, lastBilledMonth:m}); s.debtAmount=dbt; s.delayMonths=del; s.lastReading=r; s.lastBilledMonth=m; }
-        saveLocalData(); recalculateFinancials(); document.getElementById('billResult').style.display='none'; document.getElementById('billActionsContainer').style.display='none'; window.autoFillSubscriber(); window.checkUnbilledCounters(); showToast('تم حفظ الفاتورة');
+        
+        saveLocalData(); recalculateFinancials(); document.getElementById('billResult').style.display='none'; document.getElementById('billActionsContainer').style.display='none';
+        
+        // التمرير التلقائي للعداد الموالي
+        let currentSubIndex = subscribers.findIndex(x => String(x.counter) === String(c));
+        if(currentSubIndex !== -1 && currentSubIndex < subscribers.length - 1) {
+            let nextCounter = subscribers[currentSubIndex + 1].counter;
+            document.getElementById('counterNum').value = nextCounter;
+            document.getElementById('currReading').value = '';
+            window.autoFillSubscriber();
+        } else {
+            document.getElementById('counterNum').value = '';
+            document.getElementById('currReading').value = '';
+            window.autoFillSubscriber();
+        }
+
+        window.checkUnbilledCounters(); 
+        showToast('تم حفظ الفاتورة والمرور للعداد التالي');
     } catch(e){ showToast('خطأ بالحفظ'); } hideLoading();
 }
+
 window.downloadBillAsImage = () => { let el = document.getElementById('billResult'); el.style.background='#fff'; html2canvas(el,{scale:2}).then(c=>{ let l=document.createElement('a'); l.download=`فاتورة_${document.getElementById('printCounter').textContent}.png`; l.href=c.toDataURL(); l.click(); el.style.background=''; showToast('تم التحميل'); }); }
 window.sendWhatsAppNotification = () => { let s=subscribers.find(x=>x.counter==document.getElementById('counterNum').value); if(!s||!s.phone) return showToast('لا يوجد هاتف'); let msg=`فاتورة ماء تامدة لشهر: ${document.getElementById('billingMonth').value}\nالعداد: ${s.counter}\nالمبلغ: ${currentBillTotal} درهم`; window.open(`https://wa.me/${s.phone}?text=${encodeURIComponent(msg)}`); }
 
-/* خصائص الطباعة المخصصة (تمت استعادتها) */
-window.printThermalBill = () => {
-    let prt = document.getElementById('temp-print-container');
-    if(!prt) { prt = document.createElement('div'); prt.id = 'temp-print-container'; document.body.appendChild(prt); }
-    prt.innerHTML = document.getElementById('billResult').innerHTML;
-    document.body.classList.add('print-mode-thermal-direct');
-    window.print();
-    document.body.classList.remove('print-mode-thermal-direct');
-}
-window.printDonations = () => {
-    document.body.classList.add('print-mode-donations'); window.print(); document.body.classList.remove('print-mode-donations');
-}
+/* خصائص الطباعة */
+window.printThermalBill = () => { let prt = document.getElementById('temp-print-container'); if(!prt) { prt = document.createElement('div'); prt.id = 'temp-print-container'; document.body.appendChild(prt); } prt.innerHTML = document.getElementById('billResult').innerHTML; document.body.classList.add('print-mode-thermal-direct'); window.print(); document.body.classList.remove('print-mode-thermal-direct'); }
+window.printDonations = () => { document.body.classList.add('print-mode-donations'); window.print(); document.body.classList.remove('print-mode-donations'); }
 
-/* === العمليات المالية، الديون والدعم === */
+/* === المالية والدعم === */
 window.saveTransaction = async () => {
     let m=document.getElementById('transMonth').value, t=document.getElementById('transType').value, a=parseFloat(document.getElementById('transAmount').value)||0, d=document.getElementById('transDesc').value;
     if(a<=0||!m)return showToast('أكمل البيانات'); showLoading();
@@ -338,14 +387,69 @@ window.collectDebt = async (id, amt, cnt) => {
 window.saveDonation = async () => {
     let t=document.getElementById('donType').value, m=document.getElementById('donationMonth').value, n=document.getElementById('donationName').value, a=parseFloat(document.getElementById('donationAmount').value);
     if(!a||!m||!n) return showToast('أكمل البيانات'); showLoading(); let o = { type:t, month:m, name:n, amount:a, timestamp:new Date().toISOString() };
-    let r = await addDoc(collection(db,"donations"), o); o.firestoreId=r.id; donationsList.push(o); saveLocalData(); recalculateFinancials(); window.renderDonations(); document.getElementById('donationName').value=''; document.getElementById('donationAmount').value=''; hideLoading(); showToast('تم');
+    let r = await addDoc(collection(db,"donations"), o); o.firestoreId=r.id; donationsList.push(o); saveLocalData(); recalculateFinancials(); window.renderDonations(); renderCapital(); document.getElementById('donationName').value=''; document.getElementById('donationAmount').value=''; hideLoading(); showToast('تم');
 }
-window.renderDonations = () => { let c = document.getElementById('donationsListContainer'); if(!c)return; c.innerHTML=''; donationsList.slice().reverse().forEach(d=>c.innerHTML+=`<div class="list-item"><div class="list-info"><strong class="text-success">+ ${d.amount} درهم</strong><span>${d.type} - ${d.name} | ${d.month}</span></div></div>`); }
+
+// إضافة زر الحذف في التبرعات
+window.renderDonations = () => { 
+    let c = document.getElementById('donationsListContainer'); if(!c)return; c.innerHTML=''; 
+    donationsList.slice().reverse().forEach(d => {
+        c.innerHTML += `<div class="list-item" style="border-right-color:var(--accent-green);">
+            <div class="list-info"><strong class="text-success">+ ${d.amount} درهم</strong><span>${d.type} - ${d.name} | ${d.month}</span></div>
+            <button class="action-btn no-print" onclick="window.deleteDonation('${d.firestoreId}')">حذف</button>
+        </div>`;
+    }); 
+}
+window.deleteDonation = async (id) => {
+    if(confirm('هل أنت متأكد من حذف هذا التبرع/الدعم؟')) {
+        showLoading();
+        await deleteDoc(doc(db, "donations", id));
+        donationsList = donationsList.filter(d => d.firestoreId !== id);
+        saveLocalData(); recalculateFinancials(); window.renderDonations(); renderCapital(); hideLoading(); showToast('تم الحذف');
+    }
+}
 
 window.addManualCapital = async () => { let a=parseFloat(prompt("المبلغ:")); if(isNaN(a)||a<=0)return; let d=prompt("السبب:","إضافة"); showLoading(); let o={type:'manual',amount:a,desc:d,date:new Date().toLocaleDateString('ar-MA'),timestamp:new Date().toISOString()}; let r=await addDoc(collection(db,"capital_ledger"), o); o.firestoreId=r.id; capitalLedger.push(o); saveLocalData(); recalculateFinancials(); renderCapital(); hideLoading(); showToast('تم'); }
-function renderCapital() { document.getElementById('mainCapitalAmount').textContent = actualTotalCapital + ' درهم'; let c=document.getElementById('capitalLedgerContainer'); if(!c)return; c.innerHTML=''; capitalLedger.filter(x=>x.type==='manual').forEach(x=>c.innerHTML+=`<div class="list-item"><div class="list-info"><strong>${x.amount} درهم</strong><span>${x.desc}</span></div></div>`); }
+window.deleteCapitalEntry = async (id) => { if(confirm('هل تريد حذف هذه الإضافة اليدوية للرصيد؟')) { showLoading(); await deleteDoc(doc(db, "capital_ledger", id)); capitalLedger = capitalLedger.filter(c=>c.firestoreId!==id); saveLocalData(); recalculateFinancials(); renderCapital(); hideLoading(); showToast('تم الحذف'); } }
 
-/* === الأرشيف الشامل (تمت استعادة تصميمه وتفاصيله) === */
+/* === الصندوق والتقارير الشهرية (تم استعادة الجداول) === */
+function renderCapital() { 
+    document.getElementById('mainCapitalAmount').textContent = actualTotalCapital + ' درهم'; 
+    
+    // الإضافات اليدوية
+    let cLedger = document.getElementById('capitalLedgerContainer'); 
+    if(cLedger) {
+        cLedger.innerHTML=''; 
+        capitalLedger.filter(x=>x.type==='manual').forEach(x => {
+            cLedger.innerHTML += `<div class="list-item"><div class="list-info"><strong>${x.amount} درهم</strong><span>${x.desc}</span></div><button class="action-btn no-print" onclick="window.deleteCapitalEntry('${x.firestoreId}')">حذف</button></div>`;
+        });
+    }
+
+    // الجدول الشهري للمداخيل والمصاريف
+    let mC = document.getElementById('monthlyIncomeContainer');
+    if(mC) {
+        let mths={}; 
+        transactionsList.forEach(t=>{ if(!mths[t.month]) mths[t.month]={i:0, e:0}; if(t.type==='income') mths[t.month].i+=Number(t.amount); if(t.type==='expense') mths[t.month].e+=Number(t.amount); }); 
+        donationsList.forEach(d=>{ if(!mths[d.month]) mths[d.month]={i:0, e:0}; mths[d.month].i+=Number(d.amount); });
+        majorExpensesList.forEach(e=>{ let m=e.date.slice(0,7); if(!mths[m]) mths[m]={i:0, e:0}; mths[m].e+=Number(e.amount); });
+        
+        let sortedMonths = Object.keys(mths).sort().reverse(); 
+        if(sortedMonths.length === 0) {
+            mC.innerHTML = '<p>لا توجد بيانات مالية مسجلة.</p>';
+            return;
+        }
+
+        let tableHtml = `<div class="table-responsive"><table class="archive-table"><thead><tr><th>الشهر</th><th>المداخيل (درهم)</th><th>المصاريف (درهم)</th><th>الصافي</th></tr></thead><tbody>`;
+        sortedMonths.forEach(m => { 
+            let net = mths[m].i - mths[m].e; 
+            tableHtml += `<tr><td><strong>${m}</strong></td><td class="text-success">${mths[m].i}</td><td class="text-danger">${mths[m].e}</td><td style="font-weight:bold; color:${net >= 0 ? 'var(--accent-green)' : 'var(--danger-red)'}">${net}</td></tr>`; 
+        });
+        tableHtml += `</tbody></table></div>`; 
+        mC.innerHTML = tableHtml;
+    }
+}
+
+/* === الأرشيف الشامل === */
 window.renderArchive = () => {
     let c = document.getElementById('archiveContainer'); if(!c) return; c.innerHTML = '';
     let ms = new Set(); archiveBills.forEach(b => ms.add(b.month)); archiveFinance.forEach(f => ms.add(f.month));
