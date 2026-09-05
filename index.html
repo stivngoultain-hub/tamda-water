@@ -5,67 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق تسيير ماء تامدة</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <!-- مكتبات خارجية للمبيانات وتصدير الصور -->
+    <!-- مكتبات خارجية -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- شاشة التحميل (Spinner) -->
+    <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:100000; justify-content:center; align-items:center; flex-direction:column; color:white;">
+        <div class="spinner"></div>
+        <p style="margin-top:15px; font-weight:bold; font-size:1.2rem;">جاري معالجة البيانات...</p>
+    </div>
 
     <div id="connectionStatus" style="background: #25D366;">متصل (Online)</div>
     <div id="toast">تمت العملية بنجاح!</div>
 
-    <!-- شاشة تسجيل الدخول (تم الاختصار والتحديث) -->
     <div id="loginScreen">
         <div class="login-box">
             <h2>💧 تامدة - تسيير الماء</h2>
             <div id="loginError"></div>
-            <select id="userRole" onchange="toggleLoginCounter()">
+            <select id="userRole" onchange="window.toggleLoginCounter()">
                 <option value="admin">بوابة الجمعية (الإدارة)</option>
                 <option value="subscriber">بوابة المنخرطين</option>
             </select>
             <input type="text" id="loginCounter" placeholder="رقم العداد الخاص بك" style="display: none;">
-            <input type="password" id="loginCode" placeholder="أدخل الرمز السري..." onkeypress="handleEnter(event)">
-            <button onclick="authenticate()">تسجيل الدخول</button>
+            <input type="password" id="loginCode" placeholder="أدخل الرمز السري..." onkeypress="window.handleEnter(event)">
+            <button onclick="window.authenticate()">تسجيل الدخول</button>
         </div>
     </div>
 
-    <!-- القائمة الجانبية -->
-    <div id="overlay" onclick="toggleSidebar()"></div>
+    <div id="overlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
-        <div class="sidebar-header">
-            جمعية تامدة
-            <span id="activeUserLabel">مرحباً: إدارة الجمعية</span>
-        </div>
+        <div class="sidebar-header">جمعية تامدة<span id="activeUserLabel">مرحباً: إدارة الجمعية</span></div>
         <div id="adminLinks">
-            <a class="menu-item" onclick="navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
-            <a class="menu-item" onclick="navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
-            <a class="menu-item" onclick="navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
-            <a class="menu-item" onclick="navigateTo('💰 ملخص العمليات الشهرية')">💰 ملخص العمليات الشهرية</a>
-            <a class="menu-item" onclick="navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
-            <a class="menu-item" onclick="navigateTo('💖 سجل التبرعات')">💖 سجل التبرعات</a>
-            <a class="menu-item" onclick="navigateTo('📊 التقارير المالية')">📊 تقارير الصندوق</a>
-            <a class="menu-item" onclick="navigateTo('📊 الإحصائيات الشهرية')">📊 الإحصائيات الشاملة</a>
-            <a class="menu-item" onclick="navigateTo('📥 الشكايات والطلبات')">📥 الشكايات والطلبات</a>
-            <a class="menu-item" onclick="navigateTo('📜 القانون والتقارير')">📜 القانون والوثائق</a>
-            <a class="menu-item" onclick="navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
-            <a class="menu-item" onclick="navigateTo('👥 نشاط الأعضاء')">👥 سجل التتبع الإداري</a>
-            <a class="menu-item" onclick="navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
+            <a class="menu-item" onclick="window.navigateTo('🏠 لوحة القيادة')">🏠 لوحة القيادة</a>
+            <a class="menu-item" onclick="window.navigateTo('👥 إدارة المنخرطين')">👥 إدارة المنخرطين</a>
+            <a class="menu-item" onclick="window.navigateTo('💧 إدارة ماء الشرب')">💧 إدارة ماء الشرب</a>
+            <a class="menu-item" onclick="window.navigateTo('💰 ملخص العمليات الشهرية')">💰 ملخص العمليات الشهرية</a>
+            <a class="menu-item" onclick="window.navigateTo('📒 الديون والأرصدة')">📒 الديون والأرصدة</a>
+            <a class="menu-item" onclick="window.navigateTo('🏢 المصاريف الكبرى')">🏢 المصاريف الكبرى</a>
+            <a class="menu-item" onclick="window.navigateTo('💖 سجل الدعم والتبرعات')">💖 سجل الدعم والتبرعات</a>
+            <a class="menu-item" onclick="window.navigateTo('📈 مؤشرات الأداء')">📈 مؤشرات الأداء</a>
+            <a class="menu-item" onclick="window.navigateTo('📊 التقارير المالية')">📊 تقارير الصندوق</a>
+            <a class="menu-item" onclick="window.navigateTo('📊 الإحصائيات الشهرية')">📊 التقرير السنوي</a>
+            <a class="menu-item" onclick="window.navigateTo('📥 الشكايات والطلبات')">📥 الشكايات والطلبات</a>
+            <a class="menu-item" onclick="window.navigateTo('📜 القانون والتقارير')">📜 القانون والوثائق</a>
+            <a class="menu-item" onclick="window.navigateTo('🗄️ الأرشيف والتخزين')">🗄️ الأرشيف والتخزين</a>
+            <a class="menu-item" onclick="window.navigateTo('👥 نشاط الأعضاء')">👥 سجل التتبع الإداري</a>
+            <a class="menu-item" onclick="window.navigateTo('⚙️ الإعدادات')">⚙️ الإعدادات</a>
         </div>
         <div id="subscriberLinks" style="display: none;">
-            <a class="menu-item" onclick="navigateTo('👤 فواتيري وطلباتي')">👤 فواتيري والخدمات</a>
+            <a class="menu-item" onclick="window.navigateTo('👤 فواتيري وطلباتي')">👤 فواتيري والخدمات</a>
         </div>
-        <a class="menu-item text-danger" style="color:var(--danger-red); border-top:2px solid #eee; margin-top:10px;" onclick="logout()">🚪 تسجيل الخروج</a>
+        <a class="menu-item text-danger" style="color:var(--danger-red); border-top:2px solid #eee; margin-top:10px;" onclick="window.logout()">🚪 تسجيل الخروج</a>
     </div>
 
-    <!-- محتوى التطبيق -->
     <div id="appContent">
         <div class="header no-print">
             <div style="display:flex; align-items:center; gap:10px;">
-                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                <button class="menu-btn" onclick="window.toggleSidebar()">☰</button>
                 <h3 style="color: var(--primary-blue); margin:0;">💧 نظام تامدة</h3>
             </div>
-            <!-- زر الوضع الداكن -->
             <button class="menu-btn" style="font-size:1.2rem;" onclick="window.toggleDarkMode()">🌗</button>
         </div>
 
@@ -76,20 +77,11 @@
                 <div class="card">
                     <h3 class="card-title">🏠 نظرة عامة سريعة</h3>
                     <div class="stat-grid">
-                        <div class="stat-card">
-                            <h3 id="dashSubCount">0</h3>
-                            <p>عدد المنخرطين</p>
-                        </div>
-                        <div class="stat-card">
-                            <h3 id="dashDebts" class="text-danger" style="color:var(--danger-red);">0 درهم</h3>
-                            <p>مجموع الديون</p>
-                        </div>
+                        <div class="stat-card"><h3 id="dashSubCount">0</h3><p>عدد المنخرطين</p></div>
+                        <div class="stat-card"><h3 id="dashDebts" class="text-danger" style="color:var(--danger-red);">0 درهم</h3><p>مجموع الديون</p></div>
                     </div>
-                    <!-- المبيان التفاعلي -->
-                    <div style="margin-top:20px; margin-bottom:20px;">
-                        <canvas id="financeChart" height="120"></canvas>
-                    </div>
-                    <button class="btn btn-blue" style="width:100%;" onclick="navigateTo('💧 إدارة ماء الشرب')">🚀 الذهاب لفوترة الماء</button>
+                    <button class="btn btn-blue" style="width:100%; margin-bottom:10px;" onclick="window.navigateTo('💧 إدارة ماء الشرب')">🚀 الذهاب لفوترة الماء</button>
+                    <button class="btn btn-outline" style="width:100%;" onclick="window.exportToExcel()">📥 تصدير بيانات المنخرطين (Excel)</button>
                 </div>
             </div>
 
@@ -106,12 +98,12 @@
                         <input type="checkbox" id="newSubAlwaysExempt" style="width:20px; height:20px;">
                         <label for="newSubAlwaysExempt" style="font-weight:bold; color:var(--accent-green); cursor:pointer;">مرفق معفى دائماً (مسجد، مدرسة...)</label>
                     </div>
-                    <button class="btn btn-green" id="subSaveBtn" onclick="saveSubscriber()">💾 حفظ المشترك</button>
-                    <button class="btn btn-danger" id="subCancelBtn" style="display:none; width:100%; margin-top:10px;" onclick="resetSubForm()">❌ إلغاء التعديل</button>
+                    <button class="btn btn-green" id="subSaveBtn" onclick="window.saveSubscriber()">💾 حفظ المشترك</button>
+                    <button class="btn btn-danger" id="subCancelBtn" style="display:none; width:100%; margin-top:10px;" onclick="window.resetSubForm()">❌ إلغاء التعديل</button>
                 </div>
                 <div class="card">
                     <h3 class="card-title">👥 لائحة المنخرطين (<span id="subListCount">0</span>)</h3>
-                    <input type="text" id="searchSub" class="form-input" placeholder="🔍 ابحث بالاسم أو العداد..." onkeyup="renderSubscribers()" style="margin-bottom: 15px;">
+                    <input type="text" id="searchSub" class="form-input" placeholder="🔍 ابحث بالاسم أو العداد..." onkeyup="window.renderSubscribers()" style="margin-bottom: 15px;">
                     <div id="subscribersListContainer"></div>
                 </div>
             </div>
@@ -124,43 +116,22 @@
                 <div class="card">
                     <h3 class="card-title">💧 فوترة استهلاك الماء</h3>
                     <div class="form-group"><label class="form-label">شهر الفوترة:</label><input type="month" id="billingMonth" class="form-input" onchange="window.autoAdjustTariff(); window.checkUnbilledCounters();"></div>
-                    <div class="form-group"><label class="form-label">رقم العداد:</label><input type="number" id="counterNum" class="form-input" onchange="autoFillSubscriber()"></div>
+                    <div class="form-group"><label class="form-label">رقم العداد:</label><input type="number" id="counterNum" class="form-input" onchange="window.autoFillSubscriber()"></div>
                     <div class="form-group"><label class="form-label">اسم المشترك:</label><input type="text" id="subscriberName" class="form-input" readonly></div>
                     
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <div style="flex:1;">
-                            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
-                                القراءة السابقة:
-                                <span onclick="document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('prevReading').focus();" style="cursor:pointer; color:var(--primary-blue); font-size:0.8rem; background:#e3f2fd; padding:3px 8px; border-radius:5px; border:1px solid #bbdefb;">✏️ تعديل</span>
-                            </label>
-                            <input type="number" id="prevReading" class="form-input" readonly>
-                        </div>
-                        <div style="flex:1;">
-                            <label class="form-label">القراءة الحالية:</label>
-                            <input type="number" id="currReading" class="form-input">
-                        </div>
+                        <div style="flex:1;"><label class="form-label" style="display:flex; justify-content:space-between;">القراءة السابقة:<span onclick="document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('prevReading').focus();" style="cursor:pointer; color:var(--primary-blue); font-size:0.8rem; background:#e3f2fd; padding:3px 8px; border-radius:5px;">✏️ تعديل</span></label><input type="number" id="prevReading" class="form-input" readonly></div>
+                        <div style="flex:1;"><label class="form-label">القراءة الحالية:</label><input type="number" id="currReading" class="form-input"></div>
                     </div>
 
                     <div class="form-group"><label class="form-label">أشهر التأخير (إن وجدت):</label><input type="number" id="delayMonths" class="form-input" value="0"></div>
-                    <div class="form-group">
-                        <label class="form-label">نظام الأشطر:</label>
-                        <select id="tariffSystem" class="form-select">
-                            <option value="old">النظام القديم</option>
-                            <option value="new">النظام الجديد</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#e8f5e9; padding:10px; border-radius:6px; border:1px solid #c8e6c9;">
-                        <input type="checkbox" id="exemptionCheck" style="width:20px; height:20px;">
-                        <label for="exemptionCheck" style="font-weight:bold; color:var(--accent-green); cursor:pointer;">إعفاء المنخرط من الأداء لهذا الشهر</label>
-                    </div>
-
-                    <div id="smartAlertBox" class="alert-box alert-warning"></div>
-                    <button class="btn btn-blue" style="width:100%; margin-bottom:15px;" onclick="calculateBill()">🧮 حساب الفاتورة</button>
+                    <div class="form-group"><label class="form-label">نظام الأشطر:</label><select id="tariffSystem" class="form-select"><option value="old">النظام القديم</option><option value="new">النظام الجديد</option></select></div>
+                    <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#e8f5e9; padding:10px; border-radius:6px;"><input type="checkbox" id="exemptionCheck" style="width:20px; height:20px;"><label for="exemptionCheck" style="font-weight:bold; color:var(--accent-green); cursor:pointer;">إعفاء المنخرط من الأداء</label></div>
+                    <button class="btn btn-blue" style="width:100%; margin-bottom:15px;" onclick="window.calculateBill()">🧮 حساب الفاتورة</button>
 
                     <div id="billExportContainer">
                         <div id="billResult" style="display: none; background: #fff; padding: 15px; border-radius: 8px; border: 2px dashed var(--primary-blue); margin-bottom: 15px; color:black;">
-                            <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء (المبلغ = 0)</div>
+                            <div id="exemptionNotice" style="display:none; color:var(--accent-green); font-weight:bold; text-align:center; padding:10px; margin-bottom:10px; background:#e8f5e9; border-radius:5px;">هذه الفاتورة معفاة من الأداء</div>
                             <h4 style="text-align: center; color: var(--primary-blue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">فاتورة الاستهلاك - <span id="printMonth"></span></h4>
                             <p><strong>المشترك:</strong> <span id="printName"></span> (عداد: <span id="printCounter"></span>)</p>
                             <p><strong>القراءة السابقة:</strong> <span id="printPrev"></span></p>
@@ -178,20 +149,10 @@
                     </div>
                     
                     <div id="billActionsContainer" style="display:none;" class="no-print">
-                        <div style="display:flex; gap:10px; margin-top:15px;">
-                            <button class="btn btn-green" style="flex:1; margin-top:0;" onclick="saveBill(true)">💵 أداء خالص</button>
-                            <button class="btn btn-outline" style="flex:1;" onclick="saveBill(false)">📝 تسجيل كدين</button>
-                        </div>
+                        <div style="display:flex; gap:10px; margin-top:15px;"><button class="btn btn-green" style="flex:1;" onclick="window.saveBill(true)">💵 أداء خالص</button><button class="btn btn-outline" style="flex:1;" onclick="window.saveBill(false)">📝 تسجيل كدين</button></div>
                         <button class="btn btn-outline" style="width:100%; margin-top:10px; background:#e3f2fd; color:var(--primary-blue);" onclick="window.downloadBillAsImage()">📸 تحميل الفاتورة كصورة للواتساب</button>
-                        <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="sendWhatsAppNotification()">📱 إرسال الفاتورة نصياً عبر واتساب</button>
-                        <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية (A4)</button>
-                        <button class="btn btn-outline" style="width:100%; margin-top:10px; background-color: #333; color: white; border: none;" onclick="printThermalBill()">🖨️ طباعة توصيل (طابعة حرارية)</button>
+                        <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.sendWhatsAppNotification()">📱 إرسال الفاتورة نصياً عبر واتساب</button>
                     </div>
-                </div>
-
-                <div class="card" id="counterHistoryCard" style="display:none;">
-                    <h3 class="card-title">📅 سجل الفواتير للعداد المحدد</h3>
-                    <div id="counterBillsList"></div>
                 </div>
             </div>
 
@@ -199,48 +160,76 @@
             <div id="view-debts" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:15px;">
-                        <h3 class="card-title" style="border:none; margin:0; padding:0;">📒 الديون والأرصدة العالقة</h3>
-                        <select id="debtSortSelect" class="form-select no-print" style="width:auto;" onchange="renderDebts()">
-                            <option value="counter">ترتيب بالعداد</option>
-                            <option value="highest">الأكثر مديونية</option>
-                            <option value="oldest">الأكثر تأخيراً</option>
+                        <h3 class="card-title" style="border:none; margin:0;">📒 الديون</h3>
+                        <select id="debtSortSelect" class="form-select no-print" style="width:auto;" onchange="window.renderDebts()">
+                            <option value="counter">ترتيب بالعداد</option><option value="highest">الأكثر مديونية</option><option value="oldest">الأكثر تأخيراً</option>
                         </select>
                     </div>
                     <div id="debtsListContainer"></div>
                 </div>
             </div>
 
-            <!-- سجل العمليات المالية -->
+            <!-- العمليات الشهرية -->
             <div id="view-finance" class="view-section">
                 <div class="card no-print">
-                    <h3 class="card-title">💰 إضافة عملية مالية استثنائية</h3>
-                    <div class="form-group"><label class="form-label">الشهر المالي:</label><input type="month" id="transMonth" class="form-input"></div>
-                    <div class="form-group"><label class="form-label">نوع العملية:</label><select id="transType" class="form-select"><option value="expense">مصروف (خروج مال)</option><option value="income">مدخول إضافي (دخول مال)</option></select></div>
-                    <div class="form-group"><label class="form-label">المبلغ (درهم):</label><input type="number" id="transAmount" class="form-input"></div>
-                    <div class="form-group"><label class="form-label">البيان:</label><input type="text" id="transDesc" class="form-input" placeholder="شراء مضخة، أداء كهرباء..."></div>
-                    <button class="btn btn-green" onclick="saveTransaction()">💾 حفظ العملية</button>
+                    <h3 class="card-title">💰 إضافة عملية مالية اعتيادية</h3>
+                    <div class="form-group"><label class="form-label">الشهر:</label><input type="month" id="transMonth" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">النوع:</label><select id="transType" class="form-select"><option value="expense">مصروف عادي</option><option value="income">مدخول إضافي</option></select></div>
+                    <div class="form-group"><label class="form-label">المبلغ:</label><input type="number" id="transAmount" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">البيان:</label><input type="text" id="transDesc" class="form-input"></div>
+                    <button class="btn btn-green" onclick="window.saveTransaction()">💾 حفظ العملية</button>
+                </div>
+                <div class="card"><h3 class="card-title">📊 ملخص العمليات الشهرية</h3><div id="transactionsListContainer"></div></div>
+            </div>
+
+            <!-- المصاريف الكبرى (جديد) -->
+            <div id="view-major-expenses" class="view-section">
+                <div class="card no-print">
+                    <h3 class="card-title">🏢 تسجيل المصاريف الكبرى والاستثنائية</h3>
+                    <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">هذه المصاريف تُقتطع مباشرة من الصندوق العام للجمعية (مثال: شراء مضخة رئيسية، إصلاحات كبرى).</p>
+                    <div class="form-group"><label class="form-label">التاريخ:</label><input type="date" id="majorDate" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">البيان (وصف المصروف):</label><input type="text" id="majorDesc" class="form-input" placeholder="مثال: حفر بئر جديد..."></div>
+                    <div class="form-group"><label class="form-label">المبلغ الإجمالي (درهم):</label><input type="number" id="majorAmount" class="form-input"></div>
+                    <div class="form-group" style="background:#f0f8ff; padding:10px; border-radius:5px; border:1px dashed var(--primary-blue);">
+                        <label class="form-label">إرفاق فاتورة أو توصيل (صورة أو PDF):</label>
+                        <input type="file" id="majorFile" class="form-input" accept=".pdf,image/*">
+                    </div>
+                    <button class="btn btn-danger" style="margin-top:15px;" onclick="window.saveMajorExpense()">💾 تسجيل المصروف الكبير واقتطاعه من الصندوق</button>
+                </div>
+                <div class="card"><h3 class="card-title">سجل المصاريف الكبرى</h3><div id="majorExpensesContainer"></div></div>
+            </div>
+
+            <!-- الدعم والتبرعات -->
+            <div id="view-donations" class="view-section">
+                <div class="card no-print">
+                    <h3 class="card-title">💖 إضافة دعم أو تبرع</h3>
+                    <div class="form-group"><label class="form-label">النوع:</label><select id="donType" class="form-select"><option value="دعم مؤسساتي">دعم مؤسساتي (جماعة، مبادرة...)</option><option value="تبرع شخصي">تبرع شخصي (محسن)</option></select></div>
+                    <div class="form-group"><label class="form-label">التاريخ:</label><input type="month" id="donationMonth" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">الجهة أو المحسن:</label><input type="text" id="donationName" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">المبلغ (درهم):</label><input type="number" id="donationAmount" class="form-input"></div>
+                    <button class="btn btn-green" onclick="window.saveDonation()">💾 تسجيل المدخول</button>
                 </div>
                 <div class="card">
-                    <h3 class="card-title">📊 ملخص العمليات الشهرية</h3>
-                    <div id="transactionsListContainer"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 class="card-title" style="margin:0;">سجل الدعم والتبرعات</h3><button class="btn btn-outline no-print" onclick="window.printDonations()">🖨️ طباعة</button></div>
+                    <div id="donationsListContainer"></div>
                 </div>
             </div>
 
-            <!-- التبرعات -->
-            <div id="view-donations" class="view-section">
-                <div class="card no-print">
-                    <h3 class="card-title">💖 إضافة تبرع جديد</h3>
-                    <div class="form-group"><label class="form-label">تاريخ التبرع:</label><input type="month" id="donationMonth" class="form-input"></div>
-                    <div class="form-group"><label class="form-label">اسم المحسن(ة):</label><input type="text" id="donationName" class="form-input"></div>
-                    <div class="form-group"><label class="form-label">المبلغ (درهم):</label><input type="number" id="donationAmount" class="form-input"></div>
-                    <button class="btn btn-green" onclick="saveDonation()">💾 تسجيل التبرع</button>
+            <!-- مؤشرات الأداء Dashboards (جديد) -->
+            <div id="view-indicators" class="view-section">
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                        <h3 class="card-title" style="border:none; margin:0;">📈 مؤشرات الأداء المالي</h3>
+                        <button class="btn btn-outline no-print" onclick="window.downloadChart('financialPerformanceChart', 'المنحنى_المالي')">📸 تحميل المبيان</button>
+                    </div>
+                    <canvas id="financialPerformanceChart" height="150"></canvas>
                 </div>
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3 class="card-title" style="border:none; margin:0; padding:0;">سجل المحسنين</h3>
-                        <button class="btn btn-outline no-print" onclick="printDonations()">🖨️ طباعة السجل</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                        <h3 class="card-title" style="border:none; margin:0;">💧 تطور استهلاك الماء (m³)</h3>
+                        <button class="btn btn-outline no-print" onclick="window.downloadChart('consumptionChart', 'منحنى_الاستهلاك')">📸 تحميل المبيان</button>
                     </div>
-                    <div id="donationsListContainer"></div>
+                    <canvas id="consumptionChart" height="150"></canvas>
                 </div>
             </div>
 
@@ -249,21 +238,14 @@
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px;">
                         <h3 class="card-title" style="border:none; margin:0; padding:0;">🏦 الرصيد الإجمالي للصندوق</h3>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="addManualCapital()">➕ إضافة رصيد يدوي</button>
-                            <button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="window.print()">🖨️ طباعة</button>
-                        </div>
+                        <div style="display:flex; gap:10px;"><button class="btn btn-outline no-print" style="padding:5px 10px; font-size:0.9rem;" onclick="window.addManualCapital()">➕ إضافة رصيد يدوي</button></div>
                     </div>
                     <div style="background:var(--primary-blue); color:white; padding:20px; border-radius:10px; text-align:center; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
-                        <p style="margin-bottom:5px; opacity:0.9;">مجموع الرصيد المتوفر بالصندوق (يتم تحديثه تلقائياً)</p>
+                        <p style="margin-bottom:5px; opacity:0.9;">مجموع الرصيد الفعلي المتوفر (بعد الخصومات)</p>
                         <h2 id="mainCapitalAmount" style="font-size:2.5rem; margin:0; direction:ltr;">0 درهم</h2>
                     </div>
                     <h4 style="margin-bottom:10px; color:var(--text-dark);">الإضافات اليدوية السابقة:</h4>
                     <div id="capitalLedgerContainer" style="margin-bottom: 20px;"></div>
-                </div>
-                <div class="card">
-                    <h3 class="card-title">📅 المداخيل والمصاريف حسب كل شهر</h3>
-                    <div id="monthlyIncomeContainer"></div>
                 </div>
             </div>
 
@@ -271,136 +253,70 @@
             <div id="view-stats" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">📊 الإحصائيات الشاملة والتقرير السنوي</h3>
-                    <select id="statTypeSelect" class="form-select" onchange="toggleStatInputs()">
-                        <option value="monthly">إحصائيات شهرية</option>
-                        <option value="yearly">إحصائيات سنوية (إنشاء تقرير أدبي/مالي)</option>
+                    <select id="statTypeSelect" class="form-select" onchange="window.toggleStatInputs()">
+                        <option value="monthly">إحصائيات شهرية</option><option value="yearly">إحصائيات سنوية (توليد تقرير)</option>
                     </select>
-                    <div class="form-group" id="monthInputGroup" style="margin-top:10px;">
-                        <label class="form-label">اختر الشهر:</label>
-                        <input type="month" id="statsMonthSelect" class="form-input" onchange="renderAdvancedStats()">
-                    </div>
-                    <div class="form-group" id="yearInputGroup" style="display:none; margin-top:10px;">
-                        <label class="form-label">اكتب السنة:</label>
-                        <div style="display:flex; gap:10px;">
-                            <input type="number" id="statsYearSelect" class="form-input" placeholder="مثال: 2024" value="2024" onchange="renderAdvancedStats()">
-                            <button class="btn btn-blue" onclick="window.generateAnnualReport()">📄 توليد التقرير</button>
-                        </div>
-                    </div>
+                    <div class="form-group" id="monthInputGroup" style="margin-top:10px;"><input type="month" id="statsMonthSelect" class="form-input" onchange="window.renderAdvancedStats()"></div>
+                    <div class="form-group" id="yearInputGroup" style="display:none; margin-top:10px;"><div style="display:flex; gap:10px;"><input type="number" id="statsYearSelect" class="form-input" value="2024" onchange="window.renderAdvancedStats()"><button class="btn btn-blue" onclick="window.generateAnnualReport()">📄 توليد التقرير</button></div></div>
                 </div>
-                <div class="card">
-                    <h3 class="card-title">النتائج البيانية</h3>
-                    <div id="statsContainer"><p style="color:#666;">المرجو تحديد الشهر أو السنة لعرض الإحصائيات.</p></div>
-                </div>
+                <div class="card"><div id="statsContainer"><p style="color:#666;">المرجو تحديد الشهر أو السنة.</p></div></div>
             </div>
 
             <!-- الأرشيف والتخزين -->
             <div id="view-archive" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
-                        <h3 class="card-title" style="border:none; margin:0; padding:0;">🗄️ الأرشيف والتخزين</h3>
-                        <button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة الأرشيف</button>
+                        <h3 class="card-title" style="border:none; margin:0; padding:0;">🗄️ الأرشيف</h3><button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة</button>
                     </div>
                     <div id="archiveContainer"></div>
                 </div>
             </div>
 
             <!-- الشكايات الموجهة للإدارة -->
-            <div id="view-complaints" class="view-section">
-                <div class="card">
-                    <h3 class="card-title">📥 صندوق شكايات وطلبات المنخرطين</h3>
-                    <div id="complaintsListContainer"></div>
-                </div>
-            </div>
-            
+            <div id="view-complaints" class="view-section"><div class="card"><h3 class="card-title">📥 صندوق الشكايات</h3><div id="complaintsListContainer"></div></div></div>
             <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 سجل التتبع الإداري</h3><div id="standaloneMemberActivity"></div></div></div>
             
-            <!-- القانون والتقارير -->
+            <!-- القانون والتقارير (تحديث الرفع) -->
             <div id="view-bylaws" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">📜 القانون الأساسي للجمعية</h3>
-                    <textarea id="bylawInput" class="form-input" rows="8" placeholder="اكتب أو انسخ بنود القانون الأساسي هنا للرجوع إليها..."></textarea>
-                    <button class="btn btn-green" onclick="saveBylaws()">💾 حفظ نص القانون</button>
+                    <textarea id="bylawInput" class="form-input" rows="8"></textarea>
+                    <button class="btn btn-green" onclick="window.saveBylaws()">💾 حفظ نص القانون</button>
                 </div>
                 <div class="card">
-                    <h3 class="card-title">📚 الوثائق والمستندات (روابط خارجية)</h3>
-                    <div class="form-group no-print" style="background:rgba(0,188,212,0.1); padding:15px; border-radius:8px; border:1px dashed var(--primary-blue);">
-                        <label class="form-label">إضافة وثيقة جديدة:</label>
-                        <input type="text" id="docName" class="form-input" placeholder="اسم الوثيقة (مثال: محضر الجمع العام)">
-                        <input type="url" id="docUrl" class="form-input" placeholder="رابط الوثيقة (رابط Google Drive مثلاً)" style="margin-top:10px;">
-                        <button class="btn btn-blue" onclick="saveDocument()">➕ حفظ الوثيقة</button>
+                    <h3 class="card-title">📚 الوثائق والمستندات</h3>
+                    <div class="form-group no-print" style="background:rgba(0,188,212,0.1); padding:15px; border-radius:8px;">
+                        <label class="form-label">اسم الوثيقة:</label><input type="text" id="docName" class="form-input" placeholder="مثال: محضر الجمع العام">
+                        <label class="form-label" style="margin-top:10px;">اختر الملف للرفع المباشر:</label><input type="file" id="docUploadFile" class="form-input" accept=".pdf,image/*,.doc,.docx">
+                        <p style="text-align:center; font-weight:bold; margin:10px 0;">أو</p>
+                        <label class="form-label">إضافة رابط خارجي:</label><input type="url" id="docUrl" class="form-input" placeholder="رابط خارجي...">
+                        <button class="btn btn-blue" style="margin-top:15px;" onclick="window.saveDocument()">➕ حفظ ورفع الوثيقة</button>
                     </div>
                     <div id="pdfReportsContainer" style="margin-top:15px;"></div>
                 </div>
             </div>
 
-            <!-- الإعدادات وتغيير الرمز السري -->
+            <!-- الإعدادات -->
             <div id="view-settings" class="view-section">
                 <div class="card">
-                    <h3 class="card-title">⚙️ إعدادات الحسابات والأشطر</h3>
-                    <input type="number" id="setTier1" class="form-input" placeholder="ثمن الشطر 1"><input type="number" id="setTier2" class="form-input" placeholder="ثمن الشطر 2"><input type="number" id="setTier3" class="form-input" placeholder="ثمن الشطر 3">
-                    <input type="number" id="setMaintenance" class="form-input" placeholder="واجب الصيانة"><input type="number" id="setPenalty" class="form-input" placeholder="ذعيرة التأخير">
+                    <h3 class="card-title">⚙️ الإعدادات</h3>
+                    <input type="number" id="setTier1" class="form-input" placeholder="شطر 1"><input type="number" id="setTier2" class="form-input" placeholder="شطر 2"><input type="number" id="setTier3" class="form-input" placeholder="شطر 3">
+                    <input type="number" id="setMaintenance" class="form-input" placeholder="صيانة"><input type="number" id="setPenalty" class="form-input" placeholder="ذعيرة">
                 </div>
                 <div class="card">
-                    <h3 class="card-title">🔒 إعدادات الحماية</h3>
-                    <div class="form-group">
-                        <label class="form-label">تغيير الرمز السري لبوابة الجمعية (الإدارة):</label>
-                        <input type="text" id="setAdminPassword" class="form-input" placeholder="أدخل الرمز السري الجديد هنا...">
-                    </div>
-                    <button class="btn btn-green" onclick="saveSettings()">💾 حفظ جميع الإعدادات</button>
+                    <h3 class="card-title">🔒 الحماية</h3><input type="text" id="setAdminPassword" class="form-input" placeholder="الرمز السري للإدارة الجديد..."><button class="btn btn-green" onclick="window.saveSettings()">💾 حفظ الإعدادات</button>
                 </div>
             </div>
 
-            <!-- بوابة المنخرط الشاملة (تحديث) -->
+            <!-- بوابة المنخرط -->
             <div id="view-sub-portal" class="view-section">
-                <div class="card" style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-cyan)); color: white;">
-                    <h3 style="margin-bottom: 5px; font-size:1.5rem;">بوابة المنخرط الخاصة</h3>
-                    <p>مرحباً بك: <strong id="portalSubName"></strong></p>
-                    <p>رقم العداد: <strong id="portalSubCounter"></strong></p>
-                </div>
-
-                <!-- طريقة حساب النظام الجديد -->
-                <div class="card">
-                    <h3 class="card-title">ℹ️ طريقة حساب الأشطر (النظام الجديد)</h3>
-                    <ul style="padding-right:20px; line-height:1.8; color:var(--text-dark);">
-                        <li><strong>الشطر الأول (0 - 15 طن):</strong> يضرب في <strong id="infoT1" style="color:var(--accent-green);">4</strong> دراهم.</li>
-                        <li><strong>الشطر الثاني (16 - 20 طن):</strong> يضرب في <strong id="infoT2" style="color:var(--secondary-cyan);">8</strong> دراهم.</li>
-                        <li><strong>الشطر الثالث (ما فوق 20 طن):</strong> يضرب في <strong id="infoT3" style="color:var(--danger-red);">15</strong> درهماً.</li>
-                        <li><strong>واجب صيانة العداد الشهري:</strong> <strong id="infoMaint">15</strong> درهم.</li>
-                        <li><strong>ذعيرة التأخير (في حالة التأخر):</strong> <strong id="infoPenalty">50</strong> درهم.</li>
-                    </ul>
-                </div>
-
-                <!-- الاطلاع على الفواتير السابقة -->
-                <div class="card">
-                    <h3 class="card-title">📜 أرشيف فواتيري السابقة</h3>
-                    <div id="portalBillsContainer"></div>
-                </div>
-
-                <!-- إرسال الشكايات والطلبات -->
-                <div class="card">
-                    <h3 class="card-title">📥 إرسال شكاية أو طلب للإدارة</h3>
-                    <textarea id="subComplaintText" class="form-input" rows="4" placeholder="اكتب شكايتك (تسرب مياه، خطأ في الفاتورة، طلب خاص) هنا..."></textarea>
-                    <button class="btn btn-blue" onclick="submitComplaint()">📤 إرسال الشكاية</button>
-                </div>
+                <div class="card" style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-cyan)); color: white;"><h3 style="margin-bottom: 5px; font-size:1.5rem;">بوابة المنخرط الخاصة</h3><p>مرحباً: <strong id="portalSubName"></strong></p><p>العداد: <strong id="portalSubCounter"></strong></p></div>
+                <div class="card"><h3 class="card-title">📜 فواتيري</h3><div id="portalBillsContainer"></div></div>
+                <div class="card"><h3 class="card-title">📥 إرسال شكاية</h3><textarea id="subComplaintText" class="form-input" rows="4"></textarea><button class="btn btn-blue" onclick="window.submitComplaint()">📤 إرسال</button></div>
             </div>
         </div>
     </div>
 
-    <script>
-        function toggleLoginCounter() {
-            document.getElementById('loginCounter').style.display = document.getElementById('userRole').value === 'subscriber' ? 'block' : 'none';
-        }
-        window.autoAdjustTariff = function() {
-            const monthInput = document.getElementById('billingMonth').value;
-            if(!monthInput) return;
-            document.getElementById('tariffSystem').value = (monthInput <= "2026-06") ? "old" : "new";
-        };
-        document.addEventListener('DOMContentLoaded', () => {
-            let now = new Date();
-            let month = String(now.getMonth() + 1).padStart(2, '0');
-            if(document.getElementById('billingMonth')) document.getElementById('billingMonth').value = now.getFullYear() + "-" + month;
-        });
-    </script>
     <script type="module" src="script.js"></script>
 </body>
 </html>
