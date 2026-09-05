@@ -69,31 +69,24 @@ body { background-color: var(--bg-light); color: var(--text-dark); overflow-x: h
 .text-success { color: var(--accent-green); font-weight: bold; }
 .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-/* تأثير الدوران للتحميل */
 .spinner { border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-blue); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* خصائص الطباعة الشاملة (Thermal & A4 & Donations) */
 @media print {
     #sidebar, #overlay, .header, .menu-btn, .no-print, .btn, .card-title, #connectionStatus, .toast { display: none !important; }
     #appContent { padding-top: 0 !important; }
-    
     body.print-mode-donations #view-donations, body.print-mode-donations #view-donations * { visibility: visible; }
     body.print-mode-donations #view-donations { position: absolute; left: 0; top: 0; width: 100%; }
-    
     body:not(.print-mode-donations):not(.print-mode-thermal-direct):not(.print-mode-annual) #view-archive, body:not(.print-mode-donations):not(.print-mode-thermal-direct):not(.print-mode-annual) #view-archive * { visibility: visible; }
     body:not(.print-mode-donations):not(.print-mode-thermal-direct):not(.print-mode-annual) #view-reports, body:not(.print-mode-donations):not(.print-mode-thermal-direct):not(.print-mode-annual) #view-reports * { visibility: visible; }
     body:not(.print-mode-donations):not(.print-mode-thermal-direct):not(.print-mode-annual) #view-archive { position: absolute; left: 0; top: 0; width: 100%; }
-    
     body.print-mode-annual #view-stats, body.print-mode-annual #view-stats * { visibility: visible; }
     body.print-mode-annual #view-stats { position: absolute; left: 0; top: 0; width: 100%; }
-    
     .archive-table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 20px !important; font-size: 13px !important; text-align: center !important; }
     .archive-table th, .archive-table td { border: 1px solid #000 !important; padding: 10px !important; text-align: center !important; color: #000 !important; }
     .archive-table th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact !important; font-weight: bold !important; font-size: 14px !important; }
     
     @page { margin: 0; size: auto; }
-    /* إعدادات طابعة التوصيل الحرارية (Thermal 58mm) */
     body.print-mode-thermal-direct { margin: 0; padding: 0; background: white; }
     body.print-mode-thermal-direct > * { display: none !important; }
     body.print-mode-thermal-direct > #temp-print-container {
