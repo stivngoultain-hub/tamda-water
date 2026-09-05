@@ -5,17 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق تسيير ماء تامدة</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <!-- مكتبات خارجية -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- شاشة التحميل (Spinner) -->
     <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:100000; justify-content:center; align-items:center; flex-direction:column; color:white;">
-        <div class="spinner"></div>
-        <p style="margin-top:15px; font-weight:bold; font-size:1.2rem;">جاري معالجة البيانات...</p>
+        <div class="spinner"></div><p style="margin-top:15px; font-weight:bold; font-size:1.2rem;">جاري معالجة البيانات...</p>
     </div>
 
     <div id="connectionStatus" style="background: #25D366;">متصل (Online)</div>
@@ -64,14 +61,12 @@
     <div id="appContent">
         <div class="header no-print">
             <div style="display:flex; align-items:center; gap:10px;">
-                <button class="menu-btn" onclick="window.toggleSidebar()">☰</button>
-                <h3 style="color: var(--primary-blue); margin:0;">💧 نظام تامدة</h3>
+                <button class="menu-btn" onclick="window.toggleSidebar()">☰</button><h3 style="color: var(--primary-blue); margin:0;">💧 نظام تامدة</h3>
             </div>
             <button class="menu-btn" style="font-size:1.2rem;" onclick="window.toggleDarkMode()">🌗</button>
         </div>
 
         <div class="main-container">
-            
             <!-- لوحة القيادة -->
             <div id="view-dashboard" class="view-section">
                 <div class="card">
@@ -116,7 +111,7 @@
                 <div class="card">
                     <h3 class="card-title">💧 فوترة استهلاك الماء</h3>
                     <div class="form-group"><label class="form-label">شهر الفوترة:</label><input type="month" id="billingMonth" class="form-input" onchange="window.autoAdjustTariff(); window.checkUnbilledCounters();"></div>
-                    <div class="form-group"><label class="form-label">رقم العداد:</label><input type="number" id="counterNum" class="form-input" onchange="window.autoFillSubscriber()"></div>
+                    <div class="form-group"><label class="form-label">رقم العداد:</label><input type="number" id="counterNum" class="form-input" onkeyup="window.autoFillSubscriber()" onchange="window.autoFillSubscriber()"></div>
                     <div class="form-group"><label class="form-label">اسم المشترك:</label><input type="text" id="subscriberName" class="form-input" readonly></div>
                     
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
@@ -152,7 +147,15 @@
                         <div style="display:flex; gap:10px; margin-top:15px;"><button class="btn btn-green" style="flex:1;" onclick="window.saveBill(true)">💵 أداء خالص</button><button class="btn btn-outline" style="flex:1;" onclick="window.saveBill(false)">📝 تسجيل كدين</button></div>
                         <button class="btn btn-outline" style="width:100%; margin-top:10px; background:#e3f2fd; color:var(--primary-blue);" onclick="window.downloadBillAsImage()">📸 تحميل الفاتورة كصورة للواتساب</button>
                         <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.sendWhatsAppNotification()">📱 إرسال الفاتورة نصياً عبر واتساب</button>
+                        <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="window.print()">🖨️ طباعة الفاتورة الورقية (A4)</button>
+                        <button class="btn btn-outline" style="width:100%; margin-top:10px; background-color: #333; color: white; border: none;" onclick="window.printThermalBill()">🖨️ طباعة توصيل (طابعة حرارية)</button>
                     </div>
+                </div>
+
+                <!-- إضافة بطاقة السجل الخاص بالعداد (التي تم نسيانها) -->
+                <div class="card" id="counterHistoryCard" style="display:none;">
+                    <h3 class="card-title">📅 سجل الفواتير للعداد المحدد</h3>
+                    <div id="counterBillsList"></div>
                 </div>
             </div>
 
@@ -182,7 +185,7 @@
                 <div class="card"><h3 class="card-title">📊 ملخص العمليات الشهرية</h3><div id="transactionsListContainer"></div></div>
             </div>
 
-            <!-- المصاريف الكبرى (جديد) -->
+            <!-- المصاريف الكبرى -->
             <div id="view-major-expenses" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">🏢 تسجيل المصاريف الكبرى والاستثنائية</h3>
@@ -191,8 +194,7 @@
                     <div class="form-group"><label class="form-label">البيان (وصف المصروف):</label><input type="text" id="majorDesc" class="form-input" placeholder="مثال: حفر بئر جديد..."></div>
                     <div class="form-group"><label class="form-label">المبلغ الإجمالي (درهم):</label><input type="number" id="majorAmount" class="form-input"></div>
                     <div class="form-group" style="background:#f0f8ff; padding:10px; border-radius:5px; border:1px dashed var(--primary-blue);">
-                        <label class="form-label">إرفاق فاتورة أو توصيل (صورة أو PDF):</label>
-                        <input type="file" id="majorFile" class="form-input" accept=".pdf,image/*">
+                        <label class="form-label">إرفاق فاتورة أو توصيل (صورة أو PDF):</label><input type="file" id="majorFile" class="form-input" accept=".pdf,image/*">
                     </div>
                     <button class="btn btn-danger" style="margin-top:15px;" onclick="window.saveMajorExpense()">💾 تسجيل المصروف الكبير واقتطاعه من الصندوق</button>
                 </div>
@@ -210,24 +212,22 @@
                     <button class="btn btn-green" onclick="window.saveDonation()">💾 تسجيل المدخول</button>
                 </div>
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 class="card-title" style="margin:0;">سجل الدعم والتبرعات</h3><button class="btn btn-outline no-print" onclick="window.printDonations()">🖨️ طباعة</button></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 class="card-title" style="margin:0;">سجل الدعم والتبرعات</h3><button class="btn btn-outline no-print" onclick="window.printDonations()">🖨️ طباعة السجل</button></div>
                     <div id="donationsListContainer"></div>
                 </div>
             </div>
 
-            <!-- مؤشرات الأداء Dashboards (جديد) -->
+            <!-- مؤشرات الأداء Dashboards -->
             <div id="view-indicators" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-                        <h3 class="card-title" style="border:none; margin:0;">📈 مؤشرات الأداء المالي</h3>
-                        <button class="btn btn-outline no-print" onclick="window.downloadChart('financialPerformanceChart', 'المنحنى_المالي')">📸 تحميل المبيان</button>
+                        <h3 class="card-title" style="border:none; margin:0;">📈 مؤشرات الأداء المالي</h3><button class="btn btn-outline no-print" onclick="window.downloadChart('financialPerformanceChart', 'المنحنى_المالي')">📸 تحميل المبيان</button>
                     </div>
                     <canvas id="financialPerformanceChart" height="150"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-                        <h3 class="card-title" style="border:none; margin:0;">💧 تطور استهلاك الماء (m³)</h3>
-                        <button class="btn btn-outline no-print" onclick="window.downloadChart('consumptionChart', 'منحنى_الاستهلاك')">📸 تحميل المبيان</button>
+                        <h3 class="card-title" style="border:none; margin:0;">💧 تطور استهلاك الماء (m³)</h3><button class="btn btn-outline no-print" onclick="window.downloadChart('consumptionChart', 'منحنى_الاستهلاك')">📸 تحميل المبيان</button>
                     </div>
                     <canvas id="consumptionChart" height="150"></canvas>
                 </div>
@@ -262,11 +262,11 @@
                 <div class="card"><div id="statsContainer"><p style="color:#666;">المرجو تحديد الشهر أو السنة.</p></div></div>
             </div>
 
-            <!-- الأرشيف والتخزين -->
+            <!-- الأرشيف والتخزين (تمت استعادته بالكامل) -->
             <div id="view-archive" class="view-section">
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
-                        <h3 class="card-title" style="border:none; margin:0; padding:0;">🗄️ الأرشيف</h3><button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة</button>
+                        <h3 class="card-title" style="border:none; margin:0; padding:0;">🗄️ الأرشيف</h3><button class="btn btn-outline no-print" onclick="window.print()">🖨️ طباعة السجل</button>
                     </div>
                     <div id="archiveContainer"></div>
                 </div>
@@ -276,12 +276,11 @@
             <div id="view-complaints" class="view-section"><div class="card"><h3 class="card-title">📥 صندوق الشكايات</h3><div id="complaintsListContainer"></div></div></div>
             <div id="view-member-activity" class="view-section"><div class="card"><h3 class="card-title">👥 سجل التتبع الإداري</h3><div id="standaloneMemberActivity"></div></div></div>
             
-            <!-- القانون والتقارير (تحديث الرفع) -->
+            <!-- القانون والتقارير -->
             <div id="view-bylaws" class="view-section">
                 <div class="card no-print">
                     <h3 class="card-title">📜 القانون الأساسي للجمعية</h3>
-                    <textarea id="bylawInput" class="form-input" rows="8"></textarea>
-                    <button class="btn btn-green" onclick="window.saveBylaws()">💾 حفظ نص القانون</button>
+                    <textarea id="bylawInput" class="form-input" rows="8"></textarea><button class="btn btn-green" onclick="window.saveBylaws()">💾 حفظ نص القانون</button>
                 </div>
                 <div class="card">
                     <h3 class="card-title">📚 الوثائق والمستندات</h3>
@@ -311,6 +310,16 @@
             <!-- بوابة المنخرط -->
             <div id="view-sub-portal" class="view-section">
                 <div class="card" style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-cyan)); color: white;"><h3 style="margin-bottom: 5px; font-size:1.5rem;">بوابة المنخرط الخاصة</h3><p>مرحباً: <strong id="portalSubName"></strong></p><p>العداد: <strong id="portalSubCounter"></strong></p></div>
+                <!-- تفاصيل طريقة الحساب المسترجعة -->
+                <div class="card">
+                    <h3 class="card-title">ℹ️ طريقة حساب الأشطر</h3>
+                    <ul style="padding-right:20px; line-height:1.8; color:var(--text-dark);">
+                        <li><strong>الشطر الأول (0-15 طن):</strong> يضرب في <strong id="infoT1" style="color:var(--accent-green);">4</strong> دراهم.</li>
+                        <li><strong>الشطر الثاني (16-20 طن):</strong> يضرب في <strong id="infoT2" style="color:var(--secondary-cyan);">8</strong> دراهم.</li>
+                        <li><strong>الشطر الثالث (ما فوق 20 طن):</strong> يضرب في <strong id="infoT3" style="color:var(--danger-red);">15</strong> درهماً.</li>
+                        <li><strong>الصيانة الشهري:</strong> <strong id="infoMaint">15</strong> درهم. | <strong>ذعيرة التأخير:</strong> <strong id="infoPenalty">50</strong> درهم.</li>
+                    </ul>
+                </div>
                 <div class="card"><h3 class="card-title">📜 فواتيري</h3><div id="portalBillsContainer"></div></div>
                 <div class="card"><h3 class="card-title">📥 إرسال شكاية</h3><textarea id="subComplaintText" class="form-input" rows="4"></textarea><button class="btn btn-blue" onclick="window.submitComplaint()">📤 إرسال</button></div>
             </div>
