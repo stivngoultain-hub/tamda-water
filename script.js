@@ -84,7 +84,7 @@ async function loadDataFromCloud() {
         
         for (let i = 0; i < collections.length; i++) {
             const snap = await getDocs(collection(db, collections[i]));
-            dataMaps[i].length = 0; // Clear array
+            dataMaps[i].length = 0;
             snap.forEach(d => dataMaps[i].push({ ...d.data(), firestoreId: d.id }));
         }
         subscribers.sort((a, b) => Number(a.counter) - Number(b.counter));
@@ -124,7 +124,7 @@ function recalculateFinancials() {
     actualTotalCapital = totalIncome + manualCap - totalExpense - majorExpTotal;
 }
 
-/* === ربط الدوال بالنافذة لتجنب أخطاء النطاق (Module Scope) === */
+/* === Window Binding === */
 window.toggleLoginCounter = () => { document.getElementById('loginCounter').style.display = document.getElementById('userRole').value === 'subscriber' ? 'block' : 'none'; };
 window.handleEnter = (e) => { if (e.key === 'Enter') window.authenticate(); };
 window.toggleSidebar = () => { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); };
@@ -149,72 +149,68 @@ window.navigateTo = (page) => {
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     if(views[page] && document.getElementById(views[page])) {
         document.getElementById(views[page]).style.display = 'block';
-        if(page === '🏠 لوحة القيادة') renderDashboard(); if(page === '👥 إدارة المنخرطين') renderSubscribers();
+        if(page === '🏠 لوحة القيادة') renderDashboard(); if(page === '👥 إدارة المنخرطين') window.renderSubscribers();
         if(page === '💧 إدارة ماء الشرب') window.checkUnbilledCounters(); if(page === '⚙️ الإعدادات') loadSettingsToInputs();
-        if(page === '📒 الديون والأرصدة') renderDebts(); if(page === '💰 ملخص العمليات الشهرية') renderTransactions();
-        if(page === '💖 سجل الدعم والتبرعات') renderDonations(); if(page === '🗄️ الأرشيف والتخزين') renderArchive();
-        if(page === '📊 التقارير المالية') renderCapital(); if(page === '📥 الشكايات والطلبات') renderAdminComplaints();
-        if(page === '📜 القانون والتقارير') renderDocuments(); if(page === '👥 نشاط الأعضاء') renderAuditTrail();
-        if(page === '🏢 المصاريف الكبرى') renderMajorExpenses(); if(page === '📈 مؤشرات الأداء') renderIndicators();
-        if(page === '👤 فواتيري وطلباتي') renderSubPortalBills();
+        if(page === '📒 الديون والأرصدة') window.renderDebts(); if(page === '💰 ملخص العمليات الشهرية') window.renderTransactions();
+        if(page === '💖 سجل الدعم والتبرعات') window.renderDonations(); if(page === '🗄️ الأرشيف والتخزين') window.renderArchive();
+        if(page === '📊 التقارير المالية') renderCapital(); if(page === '📥 الشكايات والطلبات') window.renderAdminComplaints();
+        if(page === '📜 القانون والتقارير') window.renderDocuments(); if(page === '👥 نشاط الأعضاء') window.renderAuditTrail();
+        if(page === '🏢 المصاريف الكبرى') window.renderMajorExpenses(); if(page === '📈 مؤشرات الأداء') window.renderIndicators();
+        if(page === '👤 فواتيري وطلباتي') window.renderSubPortalBills();
     }
 }
+function renderDashboard() {
+    if(document.getElementById('dashSubCount')) document.getElementById('dashSubCount').textContent = subscribers.length;
+    let debts = 0; subscribers.forEach(s => debts += Number(s.debtAmount || 0)); 
+    if(document.getElementById('dashDebts')) document.getElementById('dashDebts').textContent = debts + ' درهم';
+}
 
-/* === المصاريف الكبرى ورفع الملفات (جديد) === */
+/* === المصاريف الكبرى ورفع الملفات === */
 window.saveMajorExpense = async () => {
     let date = document.getElementById('majorDate').value; let desc = document.getElementById('majorDesc').value; let amount = parseFloat(document.getElementById('majorAmount').value); let fileInput = document.getElementById('majorFile').files[0];
     if(!date || !desc || !amount) return showToast('يرجى ملء جميع البيانات');
     if(!navigator.onLine) return showToast('يلزم الاتصال بالإنترنت');
-    showLoading();
-    let fileUrl = "";
+    showLoading(); let fileUrl = "";
     try {
         if(fileInput) { const storageRef = ref(storage, `major_expenses/${Date.now()}_${fileInput.name}`); await uploadBytes(storageRef, fileInput); fileUrl = await getDownloadURL(storageRef); }
         let obj = { date, desc, amount, fileUrl, timestamp: new Date().toISOString() };
         let docRef = await addDoc(collection(db, "major_expenses"), obj); obj.firestoreId = docRef.id; majorExpensesList.push(obj);
-        saveLocalData(); recalculateFinancials(); renderMajorExpenses(); renderCapital();
+        saveLocalData(); recalculateFinancials(); window.renderMajorExpenses(); renderCapital();
         document.getElementById('majorDate').value=''; document.getElementById('majorDesc').value=''; document.getElementById('majorAmount').value=''; document.getElementById('majorFile').value='';
         showToast('تم الخصم من الصندوق وحفظ العملية');
-    } catch(e) { showToast('خطأ أثناء الحفظ (قد تكون مشكلة في صلاحيات السحابة)'); console.error(e); }
-    hideLoading();
+    } catch(e) { showToast('خطأ أثناء الحفظ'); } hideLoading();
 }
-function renderMajorExpenses() {
+window.renderMajorExpenses = () => {
     let container = document.getElementById('majorExpensesContainer'); if(!container) return; container.innerHTML = '';
     if(majorExpensesList.length === 0) return container.innerHTML = '<p>لا توجد مصاريف كبرى.</p>';
     majorExpensesList.forEach(e => {
-        let link = e.fileUrl ? `<a href="${e.fileUrl}" target="_blank" style="color:var(--primary-blue); text-decoration:underline;">📄 عرض المرفق</a>` : 'بدون مرفق';
+        let link = e.fileUrl ? `<a href="${e.fileUrl}" target="_blank" style="color:var(--primary-blue); text-decoration:underline;">📄 المرفق</a>` : 'بدون مرفق';
         container.innerHTML += `<div class="list-item" style="border-right-color:var(--danger-red);"><div class="list-info"><strong class="text-danger">${e.amount} درهم</strong><span>${e.desc} | ${e.date}</span><span>${link}</span></div><button class="action-btn no-print" onclick="window.deleteMajorExpense('${e.firestoreId}')">حذف</button></div>`;
     });
 }
 window.deleteMajorExpense = async (id) => {
     if(confirm('سيتم إلغاء المصروف وإرجاع مبلغه للصندوق. متأكد؟')) {
-        showLoading();
-        await deleteDoc(doc(db, "major_expenses", id)); majorExpensesList = majorExpensesList.filter(e => e.firestoreId !== id);
-        saveLocalData(); recalculateFinancials(); renderMajorExpenses(); renderCapital(); hideLoading(); showToast('تم الحذف');
+        showLoading(); await deleteDoc(doc(db, "major_expenses", id)); majorExpensesList = majorExpensesList.filter(e => e.firestoreId !== id);
+        saveLocalData(); recalculateFinancials(); window.renderMajorExpenses(); renderCapital(); hideLoading(); showToast('تم الحذف');
     }
 }
 
-/* === رفع الوثائق (القانون والتقارير) === */
+/* === الوثائق === */
 window.saveDocument = async () => {
     let name = document.getElementById('docName').value.trim(); let url = document.getElementById('docUrl').value.trim(); let fileInput = document.getElementById('docUploadFile').files[0];
-    if(!name) return showToast('أدخل اسم الوثيقة'); if(!navigator.onLine) return showToast('يلزم الإنترنت');
-    showLoading();
+    if(!name) return showToast('أدخل اسم الوثيقة'); if(!navigator.onLine) return showToast('يلزم الإنترنت'); showLoading();
     try {
         if(fileInput) { const storageRef = ref(storage, `documents/${Date.now()}_${fileInput.name}`); await uploadBytes(storageRef, fileInput); url = await getDownloadURL(storageRef); }
         if(!url) { hideLoading(); return showToast('يرجى اختيار ملف أو وضع رابط'); }
         let docObj = { name, url, timestamp: new Date().toISOString() }; let refDoc = await addDoc(collection(db, "documents"), docObj); docObj.firestoreId = refDoc.id; pdfReportsList.push(docObj);
-        saveLocalData(); renderDocuments(); document.getElementById('docName').value=''; document.getElementById('docUrl').value=''; document.getElementById('docUploadFile').value=''; showToast("تم الحفظ بنجاح");
-    } catch(e) { showToast("فشل الحفظ. تأكد من صلاحيات Storage"); }
-    hideLoading();
+        saveLocalData(); window.renderDocuments(); document.getElementById('docName').value=''; document.getElementById('docUrl').value=''; document.getElementById('docUploadFile').value=''; showToast("تم الحفظ بنجاح");
+    } catch(e) { showToast("فشل الحفظ."); } hideLoading();
 }
-window.deleteDocument = async (id) => { if(confirm("حذف الوثيقة؟")) { await deleteDoc(doc(db, "documents", id)); pdfReportsList = pdfReportsList.filter(d => d.firestoreId !== id); saveLocalData(); renderDocuments(); } }
-function renderDocuments() {
-    let c = document.getElementById('pdfReportsContainer'); if(!c) return; c.innerHTML = '';
-    if(pdfReportsList.length===0) return c.innerHTML='<p>لا توجد وثائق.</p>';
-    pdfReportsList.forEach(d => c.innerHTML += `<div class="list-item" style="border-right-color:var(--secondary-cyan);"><div class="list-info"><a href="${d.url}" target="_blank" style="font-weight:bold; color:var(--primary-blue);">📄 ${d.name}</a></div><button class="action-btn no-print" onclick="window.deleteDocument('${d.firestoreId}')">حذف</button></div>`);
-}
+window.deleteDocument = async (id) => { if(confirm("حذف الوثيقة؟")) { await deleteDoc(doc(db, "documents", id)); pdfReportsList = pdfReportsList.filter(d => d.firestoreId !== id); saveLocalData(); window.renderDocuments(); } }
+window.renderDocuments = () => { let c = document.getElementById('pdfReportsContainer'); if(!c) return; c.innerHTML = ''; if(pdfReportsList.length===0) return c.innerHTML='<p>لا توجد وثائق.</p>'; pdfReportsList.forEach(d => c.innerHTML += `<div class="list-item" style="border-right-color:var(--secondary-cyan);"><div class="list-info"><a href="${d.url}" target="_blank" style="font-weight:bold; color:var(--primary-blue);">📄 ${d.name}</a></div><button class="action-btn no-print" onclick="window.deleteDocument('${d.firestoreId}')">حذف</button></div>`); }
 window.saveBylaws = () => { localStorage.setItem('tamda_bylaws', document.getElementById('bylawInput').value); showToast('تم حفظ القانون الأساسي'); }
 
-/* === المنخرطين والفواتير === */
+/* === المنخرطين (استعادة خاصية توليد الكود) === */
 window.saveSubscriber = async () => {
     const id = document.getElementById('editingSubId').value; const counter = document.getElementById('newSubCounter').value; const name = document.getElementById('newSubName').value; const phone = document.getElementById('newSubPhone').value; const loc = document.getElementById('newSubLocation').value; const exempt = document.getElementById('newSubAlwaysExempt').checked;
     if(!counter || !name) return showToast('أدخل العداد والاسم'); showLoading();
@@ -231,24 +227,48 @@ window.saveSubscriber = async () => {
 window.resetSubForm = () => { document.getElementById('editingSubId').value=''; document.getElementById('newSubCounter').value=''; document.getElementById('newSubName').value=''; document.getElementById('newSubPhone').value=''; document.getElementById('newSubLocation').value=''; document.getElementById('newSubAlwaysExempt').checked=false; document.getElementById('subFormTitle').textContent='➕ إضافة مشترك جديد'; document.getElementById('subCancelBtn').style.display='none'; }
 window.editSubscriber = (id) => { let sub = subscribers.find(s=>s.firestoreId===id); if(!sub)return; document.getElementById('editingSubId').value=id; document.getElementById('newSubCounter').value=sub.counter; document.getElementById('newSubName').value=sub.name; document.getElementById('newSubPhone').value=sub.phone||''; document.getElementById('newSubLocation').value=sub.location||''; document.getElementById('newSubAlwaysExempt').checked=sub.isAlwaysExempt||false; document.getElementById('subFormTitle').textContent='✏️ تعديل مشترك'; document.getElementById('subCancelBtn').style.display='block'; window.scrollTo(0,0); }
 window.deleteSubscriber = async (id) => { if(confirm('حذف المشترك نهائياً؟')) { await deleteDoc(doc(db,"subscribers",id)); subscribers = subscribers.filter(s=>s.firestoreId!==id); saveLocalData(); window.renderSubscribers(); showToast('تم الحذف'); } }
+window.generateAndSendPIN = async (id) => {
+    let sub = subscribers.find(s => s.firestoreId === id); if (!sub) return;
+    if (!sub.phone) return showToast('رقم هاتف المنخرط غير مسجل!');
+    let pin = Math.floor(1000 + Math.random() * 9000).toString(); sub.pin = pin; saveLocalData();
+    if(navigator.onLine) await updateDoc(doc(db, "subscribers", id), { pin: pin }).catch(()=>{});
+    let msg = `مرحباً السيد(ة) ${sub.name}،\nتم تفعيل حسابك في بوابة المشتركين لتطبيق ماء تامدة.\n\n👤 اسم المستخدم (رقم العداد): ${sub.counter}\n🔑 الرمز السري: ${pin}`;
+    window.open(`https://wa.me/${sub.phone}?text=${encodeURIComponent(msg)}`, '_blank'); showToast('تم التوليد'); window.renderSubscribers();
+}
 window.renderSubscribers = () => {
     let c = document.getElementById('subscribersListContainer'); if(!c) return; let term = document.getElementById('searchSub').value.toLowerCase(); c.innerHTML='';
     let f = subscribers.filter(s=>s.name.toLowerCase().includes(term)||String(s.counter).includes(term)); document.getElementById('subListCount').textContent=f.length;
     f.forEach(s => {
         let badge = s.isAlwaysExempt ? '<strong style="color:green; font-size:0.8rem;">(معفى)</strong>' : '';
-        c.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:stretch;"><div class="list-info" style="margin-bottom:10px;"><strong>عداد (${s.counter}): ${s.name} ${badge}</strong><span>هاتف: ${s.phone||'-'} | ديون: <strong class="${s.debtAmount>0?'text-danger':'text-success'}">${s.debtAmount||0} درهم</strong></span></div><div style="display:flex; gap:8px;"><button class="edit-btn" style="flex:1;" onclick="window.editSubscriber('${s.firestoreId}')">تعديل</button><button class="action-btn" style="flex:1;" onclick="window.deleteSubscriber('${s.firestoreId}')">حذف</button></div></div>`;
+        let pinBtn = s.pin ? "🔄 إعادة الكود للمشترك" : "🔑 إرسال كود الدخول";
+        c.innerHTML += `<div class="list-item" style="flex-direction:column; align-items:stretch;">
+            <div class="list-info" style="margin-bottom:10px;"><strong>عداد (${s.counter}): ${s.name} ${badge}</strong><span>هاتف: ${s.phone||'-'} | ديون: <strong class="${s.debtAmount>0?'text-danger':'text-success'}">${s.debtAmount||0} درهم</strong></span><span>حالة البوابة: ${s.pin ? '<strong style="color:var(--accent-green);">✔️ مفعل</strong>' : '<strong style="color:var(--danger-red);">❌ غير مفعل</strong>'}</span></div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; gap:8px;"><button class="edit-btn" style="flex:1;" onclick="window.editSubscriber('${s.firestoreId}')">تعديل</button><button class="action-btn" style="flex:1;" onclick="window.deleteSubscriber('${s.firestoreId}')">حذف</button></div>
+                <button class="btn btn-outline" style="padding:8px; margin:0;" onclick="window.generateAndSendPIN('${s.firestoreId}')">${pinBtn}</button>
+            </div>
+        </div>`;
     });
 }
+
+/* === الفواتير (استعادة سجل العدادات) === */
 window.autoAdjustTariff = () => { let m = document.getElementById('billingMonth').value; if(m) document.getElementById('tariffSystem').value = (m <= "2026-06") ? "old" : "new"; }
-window.checkUnbilledCounters = () => {
-    let m = document.getElementById('billingMonth').value; let a = document.getElementById('unbilledAlertBox'); let l = document.getElementById('unbilledList'); if(!m||!a||!l) return;
-    let b = archiveBills.filter(x=>x.month===m).map(x=>x.counter); let u = subscribers.filter(s=>!b.includes(s.counter)).map(s=>s.counter);
-    if(u.length > 0 && u.length < subscribers.length) { l.textContent = u.join("، "); a.style.display='block'; } else a.style.display='none';
-}
+window.checkUnbilledCounters = () => { let m = document.getElementById('billingMonth').value; let a = document.getElementById('unbilledAlertBox'); let l = document.getElementById('unbilledList'); if(!m||!a||!l) return; let b = archiveBills.filter(x=>x.month===m).map(x=>x.counter); let u = subscribers.filter(s=>!b.includes(s.counter)).map(s=>s.counter); if(u.length > 0 && u.length < subscribers.length) { l.textContent = u.join("، "); a.style.display='block'; } else a.style.display='none'; }
 window.autoFillSubscriber = () => {
     let c = document.getElementById('counterNum').value; let s = subscribers.find(x=>x.counter==c);
-    if(s) { document.getElementById('subscriberName').value=s.name; document.getElementById('exemptionCheck').checked=s.isAlwaysExempt||false; document.getElementById('prevReading').value=s.lastReading||''; if(s.lastReading) document.getElementById('prevReading').setAttribute('readonly',true); else document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('delayMonths').value=s.delayMonths||0; }
-    else { document.getElementById('subscriberName').value=''; document.getElementById('prevReading').value=''; document.getElementById('exemptionCheck').checked=false; }
+    if(s) { 
+        document.getElementById('subscriberName').value=s.name; document.getElementById('exemptionCheck').checked=s.isAlwaysExempt||false; document.getElementById('prevReading').value=s.lastReading||''; if(s.lastReading) document.getElementById('prevReading').setAttribute('readonly',true); else document.getElementById('prevReading').removeAttribute('readonly'); document.getElementById('delayMonths').value=s.delayMonths||0; 
+        document.getElementById('counterHistoryCard').style.display='block'; window.renderCounterBills(c);
+    } else { 
+        document.getElementById('subscriberName').value=''; document.getElementById('prevReading').value=''; document.getElementById('exemptionCheck').checked=false; document.getElementById('counterHistoryCard').style.display='none';
+    }
+}
+window.renderCounterBills = (counter) => {
+    let container = document.getElementById('counterBillsList'); let bills = archiveBills.filter(b => b.counter == counter).sort((a,b) => b.month.localeCompare(a.month));
+    if(bills.length === 0) { container.innerHTML = '<p class="text-success">لا توجد فواتير سابقة.</p>'; return; }
+    let html = `<div class="table-responsive"><table class="archive-table"><thead><tr><th>الشهر</th><th>الاستهلاك</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>`;
+    bills.forEach(b => { let statCol = b.status.includes('خالصة') ? 'var(--accent-green)' : 'var(--danger-red)'; html += `<tr><td>${b.month}</td><td>${b.consumption} m³</td><td>${b.total} درهم</td><td style="color:${statCol}; font-weight:bold;">${b.status}</td></tr>`; });
+    html += `</tbody></table></div>`; container.innerHTML = html;
 }
 window.calculateBill = () => {
     let c=document.getElementById('counterNum').value, p=parseFloat(document.getElementById('prevReading').value)||0, r=parseFloat(document.getElementById('currReading').value)||0, d=parseInt(document.getElementById('delayMonths').value)||0, sys=document.getElementById('tariffSystem').value, ex=document.getElementById('exemptionCheck').checked, m=document.getElementById('billingMonth').value;
@@ -278,12 +298,25 @@ window.saveBill = async (isPaid) => {
 window.downloadBillAsImage = () => { let el = document.getElementById('billResult'); el.style.background='#fff'; html2canvas(el,{scale:2}).then(c=>{ let l=document.createElement('a'); l.download=`فاتورة_${document.getElementById('printCounter').textContent}.png`; l.href=c.toDataURL(); l.click(); el.style.background=''; showToast('تم التحميل'); }); }
 window.sendWhatsAppNotification = () => { let s=subscribers.find(x=>x.counter==document.getElementById('counterNum').value); if(!s||!s.phone) return showToast('لا يوجد هاتف'); let msg=`فاتورة ماء تامدة لشهر: ${document.getElementById('billingMonth').value}\nالعداد: ${s.counter}\nالمبلغ: ${currentBillTotal} درهم`; window.open(`https://wa.me/${s.phone}?text=${encodeURIComponent(msg)}`); }
 
-/* === المالية ، الأرشيف، الديون والدعم === */
+/* خصائص الطباعة المخصصة (تمت استعادتها) */
+window.printThermalBill = () => {
+    let prt = document.getElementById('temp-print-container');
+    if(!prt) { prt = document.createElement('div'); prt.id = 'temp-print-container'; document.body.appendChild(prt); }
+    prt.innerHTML = document.getElementById('billResult').innerHTML;
+    document.body.classList.add('print-mode-thermal-direct');
+    window.print();
+    document.body.classList.remove('print-mode-thermal-direct');
+}
+window.printDonations = () => {
+    document.body.classList.add('print-mode-donations'); window.print(); document.body.classList.remove('print-mode-donations');
+}
+
+/* === العمليات المالية، الديون والدعم === */
 window.saveTransaction = async () => {
     let m=document.getElementById('transMonth').value, t=document.getElementById('transType').value, a=parseFloat(document.getElementById('transAmount').value)||0, d=document.getElementById('transDesc').value;
     if(a<=0||!m)return showToast('أكمل البيانات'); showLoading();
     let obj = { month:m, type:t, amount:a, desc:d, createdBy:localStorage.getItem('tamda_role'), timestamp:new Date().toISOString() };
-    try { let r = await addDoc(collection(db,"transactions"), obj); obj.firestoreId=r.id; await addDoc(collection(db,"archive_finance"), obj); transactionsList.push(obj); archiveFinance.push(obj); recalculateFinancials(); saveLocalData(); renderTransactions(); renderCapital(); document.getElementById('transAmount').value=''; document.getElementById('transDesc').value=''; showToast('تم الحفظ'); } catch(e){} hideLoading();
+    try { let r = await addDoc(collection(db,"transactions"), obj); obj.firestoreId=r.id; await addDoc(collection(db,"archive_finance"), obj); transactionsList.push(obj); archiveFinance.push(obj); recalculateFinancials(); saveLocalData(); window.renderTransactions(); renderCapital(); document.getElementById('transAmount').value=''; document.getElementById('transDesc').value=''; showToast('تم الحفظ'); } catch(e){} hideLoading();
 }
 window.renderTransactions = () => {
     let c = document.getElementById('transactionsListContainer'); if(!c)return; let mths={};
@@ -312,14 +345,56 @@ window.renderDonations = () => { let c = document.getElementById('donationsListC
 window.addManualCapital = async () => { let a=parseFloat(prompt("المبلغ:")); if(isNaN(a)||a<=0)return; let d=prompt("السبب:","إضافة"); showLoading(); let o={type:'manual',amount:a,desc:d,date:new Date().toLocaleDateString('ar-MA'),timestamp:new Date().toISOString()}; let r=await addDoc(collection(db,"capital_ledger"), o); o.firestoreId=r.id; capitalLedger.push(o); saveLocalData(); recalculateFinancials(); renderCapital(); hideLoading(); showToast('تم'); }
 function renderCapital() { document.getElementById('mainCapitalAmount').textContent = actualTotalCapital + ' درهم'; let c=document.getElementById('capitalLedgerContainer'); if(!c)return; c.innerHTML=''; capitalLedger.filter(x=>x.type==='manual').forEach(x=>c.innerHTML+=`<div class="list-item"><div class="list-info"><strong>${x.amount} درهم</strong><span>${x.desc}</span></div></div>`); }
 
-/* === مؤشرات الأداء (Dashboards) - جديد === */
-function renderIndicators() {
+/* === الأرشيف الشامل (تمت استعادة تصميمه وتفاصيله) === */
+window.renderArchive = () => {
+    let c = document.getElementById('archiveContainer'); if(!c) return; c.innerHTML = '';
+    let ms = new Set(); archiveBills.forEach(b => ms.add(b.month)); archiveFinance.forEach(f => ms.add(f.month));
+    let sortedMonths = Array.from(ms).sort().reverse();
+    if(sortedMonths.length === 0) return c.innerHTML = '<p>لا توجد بيانات مسجلة في الأرشيف.</p>';
+    sortedMonths.forEach(m => {
+        let mBills = archiveBills.filter(b => b.month === m).sort((a,b) => a.counter - b.counter);
+        let mFin = archiveFinance.filter(f => f.month === m);
+        let wTotal = 0, aTotal = 0; mBills.forEach(b => { wTotal += Number(b.consumption); aTotal += Number(b.total); });
+        
+        let html = `<div class="archive-month-box" style="margin-bottom:25px; border:1px solid var(--border-color); padding:15px; border-radius:8px; background:var(--card-bg);">
+            <h4 style="color:var(--primary-blue); margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">📅 أرشيف شهر: ${m}</h4>
+            <div style="display:flex; gap:20px; margin-bottom:15px; background:var(--bg-light); padding:10px; border-radius:6px;">
+                <span>الاستهلاك: <strong>${wTotal} m³</strong></span>
+                <span>المبالغ المحصلة: <strong class="text-success">${aTotal} درهم</strong></span>
+            </div>`;
+        
+        if(mBills.length > 0) {
+            html += `<h5 style="margin-bottom:10px;">💧 فواتير الماء:</h5><div class="table-responsive"><table class="archive-table"><thead><tr><th>العداد والاسم</th><th>الاستهلاك</th><th>المبلغ</th><th>الحالة</th><th class="no-print">حذف</th></tr></thead><tbody>`;
+            mBills.forEach(b => { html += `<tr><td><strong>${b.counter}</strong> - ${b.name}</td><td>${b.consumption}</td><td>${b.total}</td><td style="color:${b.status.includes('خالصة')?'var(--accent-green)':'var(--danger-red)'}; font-weight:bold;">${b.status}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; });
+            html += `</tbody></table></div>`;
+        }
+        
+        if(mFin.length > 0) {
+            html += `<h5 style="margin-top:20px; margin-bottom:10px;">💰 العمليات المالية:</h5><div class="table-responsive"><table class="archive-table"><thead><tr><th>النوع</th><th>المبلغ</th><th>البيان</th><th class="no-print">حذف</th></tr></thead><tbody>`;
+            mFin.forEach(f => { html += `<tr><td class="${f.type==='income'?'text-success':'text-danger'}">${f.type==='income'?'مدخول':'مصروف'}</td><td>${f.amount}</td><td>${f.desc}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.deleteArchiveFinance('${f.firestoreId}')">حذف</button></td></tr>`; });
+            html += `</tbody></table></div>`;
+        }
+        html += `</div>`;
+        c.innerHTML += html;
+    });
+}
+window.deleteArchiveBill = async (id) => {
+    if(!confirm('متأكد من حذف الفاتورة؟')) return;
+    showLoading(); try { await deleteDoc(doc(db,"archive_bills",id)); archiveBills = archiveBills.filter(b=>b.firestoreId!==id); saveLocalData(); window.renderArchive(); showToast('تم الحذف'); } catch(e){} hideLoading();
+}
+window.deleteArchiveFinance = async (id) => {
+    if(!confirm('متأكد من حذف العملية؟')) return;
+    showLoading(); try { await deleteDoc(doc(db,"archive_finance",id)); archiveFinance = archiveFinance.filter(f=>f.firestoreId!==id); await deleteDoc(doc(db,"transactions",id)).catch(()=>{}); transactionsList = transactionsList.filter(t=>t.firestoreId!==id); saveLocalData(); recalculateFinancials(); window.renderArchive(); renderCapital(); showToast('تم الحذف'); } catch(e){} hideLoading();
+}
+
+/* === مؤشرات الأداء (Dashboards) === */
+window.renderIndicators = () => {
     let ctxFin = document.getElementById('financialPerformanceChart'); let ctxCons = document.getElementById('consumptionChart');
     if(!ctxFin || !ctxCons) return;
     let mths={}; archiveBills.forEach(b=>{ if(!mths[b.month]) mths[b.month]={w:0,i:0,e:0}; mths[b.month].w+=Number(b.consumption); mths[b.month].i+=Number(b.total); });
     transactionsList.forEach(t=>{ if(!mths[t.month]) mths[t.month]={w:0,i:0,e:0}; if(t.type==='expense') mths[t.month].e+=Number(t.amount); if(t.type==='income') mths[t.month].i+=Number(t.amount); });
-    majorExpensesList.forEach(e=>{ let m=e.date.slice(0,7); if(!mths[m]) mths[m]={w:0,i:0,e:0}; mths[m].e+=Number(e.amount); }); // تضمين المصاريف الكبرى
-    let ks = Object.keys(mths).sort().slice(-12); // آخر سنة
+    majorExpensesList.forEach(e=>{ let m=e.date.slice(0,7); if(!mths[m]) mths[m]={w:0,i:0,e:0}; mths[m].e+=Number(e.amount); });
+    let ks = Object.keys(mths).sort().slice(-12);
     let lbs=ks, incs=ks.map(k=>mths[k].i), exps=ks.map(k=>mths[k].e), wts=ks.map(k=>mths[k].w);
     let isDk = document.body.classList.contains('dark-mode'); let txt = isDk?'#ddd':'#333'; let grid = isDk?'#444':'#ddd';
     
@@ -330,24 +405,21 @@ function renderIndicators() {
 }
 window.downloadChart = (id, name) => { let c=document.getElementById(id); let l=document.createElement('a'); l.download=`${name}.png`; l.href=c.toDataURL('image/png',1.0); l.click(); }
 
-/* === التقرير السنوي والأرشيف === */
+/* === التقرير السنوي والتصدير والشكايات === */
 window.toggleStatInputs = () => { let t = document.getElementById('statTypeSelect').value; document.getElementById('monthInputGroup').style.display = t==='monthly'?'block':'none'; document.getElementById('yearInputGroup').style.display = t==='yearly'?'block':'none'; }
 window.generateAnnualReport = () => {
     let y = document.getElementById('statsYearSelect').value; if(!y) return; let printW = window.open('','_blank');
     let inc=0, exp=0, w=0; transactionsList.filter(t=>t.month.startsWith(y)).forEach(t=>{ if(t.type==='income')inc+=Number(t.amount); else exp+=Number(t.amount); }); archiveBills.filter(b=>b.month.startsWith(y)).forEach(b=>{ w+=Number(b.consumption); inc+=Number(b.total); }); majorExpensesList.filter(e=>e.date.startsWith(y)).forEach(e=>exp+=Number(e.amount));
     printW.document.write(`<html dir="rtl"><body style="font-family:Arial; padding:20px;"><h2>التقرير السنوي ${y}</h2><hr><p>الاستهلاك: <strong>${w} m³</strong></p><p>المداخيل: <strong style="color:green;">${inc} درهم</strong></p><p>المصاريف: <strong style="color:red;">${exp} درهم</strong></p><script>window.print();</script></body></html>`);
 }
-function renderArchive() { let c=document.getElementById('archiveContainer'); if(!c)return; c.innerHTML=''; let ms=new Set(); archiveBills.forEach(b=>ms.add(b.month)); Array.from(ms).sort().reverse().forEach(m=>{ c.innerHTML+=`<div class="list-item"><strong>أرشيف شهر ${m}</strong></div>`; }); }
-
-/* === الإعدادات، التصدير، الشكايات === */
-window.exportToExcel = () => {
-    let ws = XLSX.utils.json_to_sheet(subscribers.map(s=>({ "العداد":s.counter, "الاسم":s.name, "الهاتف":s.phone||'', "الديون":s.debtAmount||0, "التأخير":s.delayMonths||0 })));
-    let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "المنخرطين"); XLSX.writeFile(wb, "لائحة_المنخرطين.xlsx");
-}
+window.exportToExcel = () => { let ws = XLSX.utils.json_to_sheet(subscribers.map(s=>({ "العداد":s.counter, "الاسم":s.name, "الهاتف":s.phone||'', "الديون":s.debtAmount||0, "التأخير":s.delayMonths||0 }))); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "المنخرطين"); XLSX.writeFile(wb, "لائحة_المنخرطين.xlsx"); }
 window.saveSettings = () => { appSettings.tier1 = parseFloat(document.getElementById('setTier1').value)||4; appSettings.tier2 = parseFloat(document.getElementById('setTier2').value)||8; appSettings.tier3 = parseFloat(document.getElementById('setTier3').value)||15; appSettings.maintenance = parseFloat(document.getElementById('setMaintenance').value)||15; appSettings.penalty = parseFloat(document.getElementById('setPenalty').value)||50; localStorage.setItem('tamda_settings', JSON.stringify(appSettings)); let p = document.getElementById('setAdminPassword').value.trim(); if(p) { secureCodes['admin']=p; localStorage.setItem('tamda_codes', JSON.stringify(secureCodes)); document.getElementById('setAdminPassword').value=''; } showToast('تم الحفظ'); }
 function loadSettingsToInputs() { document.getElementById('setTier1').value = appSettings.tier1; document.getElementById('setTier2').value = appSettings.tier2; document.getElementById('setTier3').value = appSettings.tier3; document.getElementById('setMaintenance').value = appSettings.maintenance; document.getElementById('setPenalty').value = appSettings.penalty; }
 window.submitComplaint = async () => { let t = document.getElementById('subComplaintText').value; if(!t)return; showLoading(); let o = { counter:localStorage.getItem('tamda_counter'), name:localStorage.getItem('tamda_subname'), text:t, date:new Date().toLocaleDateString('ar-MA'), timestamp:new Date().toISOString() }; let r = await addDoc(collection(db,"complaints"),o); o.firestoreId=r.id; complaintsList.push(o); saveLocalData(); document.getElementById('subComplaintText').value=''; hideLoading(); showToast('تم الإرسال'); }
-function renderAdminComplaints() { let c = document.getElementById('complaintsListContainer'); if(!c)return; c.innerHTML=''; complaintsList.forEach(x=>c.innerHTML+=`<div class="list-item"><div class="list-info"><strong>${x.name} (${x.counter})</strong><p>${x.text}</p></div><button class="action-btn" onclick="window.deleteComplaint('${x.firestoreId}')">إغلاق</button></div>`); }
-window.deleteComplaint = async (id) => { await deleteDoc(doc(db,"complaints",id)); complaintsList=complaintsList.filter(c=>c.firestoreId!==id); saveLocalData(); renderAdminComplaints(); }
-function renderAuditTrail() { let c = document.getElementById('standaloneMemberActivity'); if(!c)return; c.innerHTML=''; transactionsList.slice(-20).reverse().forEach(t=>c.innerHTML+=`<div class="list-item"><span>${t.timestamp.slice(0,10)} | ${t.desc}</span></div>`); }
-function renderSubPortalBills() { let c = document.getElementById('portalBillsContainer'); if(!c)return; c.innerHTML=''; archiveBills.filter(b=>b.counter==localStorage.getItem('tamda_counter')).forEach(b=>c.innerHTML+=`<div class="list-item"><strong>${b.month}</strong><span>${b.total} درهم</span></div>`); }
+window.renderAdminComplaints = () => { let c = document.getElementById('complaintsListContainer'); if(!c)return; c.innerHTML=''; complaintsList.forEach(x=>c.innerHTML+=`<div class="list-item"><div class="list-info"><strong>${x.name} (${x.counter})</strong><p>${x.text}</p></div><button class="action-btn" onclick="window.deleteComplaint('${x.firestoreId}')">إغلاق</button></div>`); }
+window.deleteComplaint = async (id) => { await deleteDoc(doc(db,"complaints",id)); complaintsList=complaintsList.filter(c=>c.firestoreId!==id); saveLocalData(); window.renderAdminComplaints(); }
+window.renderAuditTrail = () => { let c = document.getElementById('standaloneMemberActivity'); if(!c)return; c.innerHTML=''; transactionsList.slice(-20).reverse().forEach(t=>c.innerHTML+=`<div class="list-item"><span>${t.timestamp.slice(0,10)} | ${t.desc}</span></div>`); }
+window.renderSubPortalBills = () => { 
+    if(document.getElementById('infoT1')) { document.getElementById('infoT1').textContent = appSettings.tier1; document.getElementById('infoT2').textContent = appSettings.tier2; document.getElementById('infoT3').textContent = appSettings.tier3; document.getElementById('infoMaint').textContent = appSettings.maintenance; document.getElementById('infoPenalty').textContent = appSettings.penalty; }
+    let c = document.getElementById('portalBillsContainer'); if(!c)return; c.innerHTML=''; archiveBills.filter(b=>b.counter==localStorage.getItem('tamda_counter')).forEach(b=>c.innerHTML+=`<div class="list-item"><strong>${b.month}</strong><span>${b.total} درهم</span></div>`); 
+}
