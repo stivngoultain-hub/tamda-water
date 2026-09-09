@@ -449,7 +449,99 @@ function renderCapital() {
     }
 }
 
-/* === الأرشيف الشامل === */
+/* === الأرشيف الشامل مع تعديل الفواتير === */
+window.editArchiveBill = (id) => {
+    let b = archiveBills.find(x => x.firestoreId === id);
+    if(!b) return;
+    document.getElementById('editBillId').value = id;
+    document.getElementById('editBillMonth').value = b.month;
+    document.getElementById('editBillCounter').value = b.counter;
+    document.getElementById('editBillPrev').value = b.prevReading || 0;
+    document.getElementById('editBillCurr').value = b.currReading || 0;
+    document.getElementById('editBillExempt').checked = b.isExempt || false;
+    document.getElementById('editBillStatus').value = b.status.includes('خالصة') ? 'خالصة' : 'دين';
+    document.getElementById('editBillModal').style.display = 'flex';
+};
+
+window.saveEditedBill = async () => {
+    let id = document.getElementById('editBillId').value;
+    let m = document.getElementById('editBillMonth').value;
+    let c = document.getElementById('editBillCounter').value;
+    let p = parseFloat(document.getElementById('editBillPrev').value) || 0;
+    let r = parseFloat(document.getElementById('editBillCurr').value) || 0;
+    let ex = document.getElementById('editBillExempt').checked;
+    let stat = document.getElementById('editBillStatus').value;
+    let d = parseInt(document.getElementById('editBillDelay').value) || 0;
+
+    if (r < p) return showToast('القراءة الحالية يجب أن تكون أكبر أو تساوي السابقة!');
+
+    showLoading();
+    try {
+        let cons = r - p;
+        let sys = (m <= "2026-06") ? "old" : "new";
+        let t1=0, t2=0, t3=0, tc1=0, tc2=0, tc3=0, maint=sys==='old'?15:appSettings.maintenance;
+        if(sys==='old') {
+            if(cons<=20){t1=cons;}else if(cons<=30){t1=20;t2=cons-20;}else{t1=20;t2=10;t3=cons-30;}
+            tc1=t1*3; tc2=t2*5; tc3=t3*7;
+        } else {
+            if(cons<=15){t1=cons;}else if(cons<=20){t1=15;t2=cons-15;}else{t1=15;t2=5;t3=cons-20;}
+            tc1=t1*appSettings.tier1; tc2=t2*appSettings.tier2; tc3=t3*appSettings.tier3;
+        }
+        let pen = d >= 2 ? appSettings.penalty : 0;
+        let total = ex ? 0 : (tc1 + tc2 + tc3 + maint + pen);
+
+        let bIndex = archiveBills.findIndex(x => x.firestoreId === id);
+        let oldBill = archiveBills[bIndex];
+
+        // تحديث الفاتورة في قاعدة البيانات
+        await updateDoc(doc(db, "archive_bills", id), {
+            prevReading: p, currReading: r, consumption: cons, total: total, status: stat, isExempt: ex
+        });
+
+        // معالجة المالية والمعاملات المرتبطة
+        if (oldBill.status === 'خالصة') {
+            let tIndex = transactionsList.findIndex(t => t.month === m && t.type === 'income' && t.desc.includes(c) && t.amount === oldBill.total);
+            if (tIndex !== -1) {
+                let tId = transactionsList[tIndex].firestoreId;
+                if (stat === 'خالصة') { 
+                    await updateDoc(doc(db, "transactions", tId), { amount: total });
+                    let afIndex = archiveFinance.findIndex(f => f.firestoreId === tId);
+                    if(afIndex !== -1) archiveFinance[afIndex].amount = total;
+                    transactionsList[tIndex].amount = total;
+                } else { 
+                    await deleteDoc(doc(db, "transactions", tId));
+                    archiveFinance = archiveFinance.filter(f => f.firestoreId !== tId);
+                    transactionsList = transactionsList.filter(t => t.firestoreId !== tId);
+                }
+            }
+        } else if (oldBill.status !== 'خالصة' && stat === 'خالصة' && total > 0) {
+            let tObj = { month:m, type:'income', amount:total, desc:`فاتورة - عداد: ${c}`, createdBy:localStorage.getItem('tamda_role'), timestamp:new Date().toISOString() };
+            let tRef = await addDoc(collection(db,"transactions"), tObj);
+            tObj.firestoreId=tRef.id; transactionsList.push(tObj); archiveFinance.push(tObj);
+        }
+
+        // تحديث ديون وقراءات المنخرط
+        let sub = subscribers.find(s => s.counter == c);
+        if (sub) {
+            oldBill.prevReading = p; oldBill.currReading = r; oldBill.consumption = cons; oldBill.total = total; oldBill.status = stat; oldBill.isExempt = ex;
+            let unpaid = archiveBills.filter(x => x.counter == c && x.status === 'دين');
+            let dbt = 0; unpaid.forEach(x => dbt += Number(x.total));
+            let del = unpaid.length;
+            
+            let latestBill = archiveBills.filter(x => x.counter == c).sort((a,b) => b.month.localeCompare(a.month))[0];
+            let lastRead = latestBill ? latestBill.currReading : r;
+
+            await updateDoc(doc(db, "subscribers", sub.firestoreId), { debtAmount: dbt, delayMonths: del, lastReading: lastRead });
+            sub.debtAmount = dbt; sub.delayMonths = del; sub.lastReading = lastRead;
+        } else {
+            oldBill.prevReading = p; oldBill.currReading = r; oldBill.consumption = cons; oldBill.total = total; oldBill.status = stat; oldBill.isExempt = ex;
+        }
+
+        saveLocalData(); recalculateFinancials(); window.renderArchive(); document.getElementById('editBillModal').style.display='none'; renderCapital();
+        showToast('تم تعديل الفاتورة بنجاح!');
+    } catch(e) { console.error(e); showToast('حدث خطأ أثناء التعديل'); } hideLoading();
+};
+
 window.renderArchive = () => {
     let c = document.getElementById('archiveContainer'); if(!c) return; c.innerHTML = '';
     let ms = new Set(); archiveBills.forEach(b => ms.add(b.month)); archiveFinance.forEach(f => ms.add(f.month));
@@ -468,8 +560,10 @@ window.renderArchive = () => {
             </div>`;
         
         if(mBills.length > 0) {
-            html += `<h5 style="margin-bottom:10px;">💧 فواتير الماء:</h5><div class="table-responsive"><table class="archive-table"><thead><tr><th>العداد والاسم</th><th>الاستهلاك</th><th>المبلغ</th><th>الحالة</th><th class="no-print">حذف</th></tr></thead><tbody>`;
-            mBills.forEach(b => { html += `<tr><td><strong>${b.counter}</strong> - ${b.name}</td><td>${b.consumption}</td><td>${b.total}</td><td style="color:${b.status.includes('خالصة')?'var(--accent-green)':'var(--danger-red)'}; font-weight:bold;">${b.status}</td><td class="no-print"><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.deleteArchiveBill('${b.firestoreId}')">حذف</button></td></tr>`; });
+            html += `<h5 style="margin-bottom:10px;">💧 فواتير الماء:</h5><div class="table-responsive"><table class="archive-table"><thead><tr><th>العداد والاسم</th><th>الاستهلاك</th><th>المبلغ</th><th>الحالة</th><th class="no-print">إجراءات</th></tr></thead><tbody>`;
+            mBills.forEach(b => { 
+                html += `<tr><td><strong>${b.counter}</strong> - ${b.name}</td><td>${b.consumption}</td><td>${b.total}</td><td style="color:${b.status.includes('خالصة')?'var(--accent-green)':'var(--danger-red)'}; font-weight:bold;">${b.status}</td><td class="no-print"><div style="display:flex; gap:5px; justify-content:center;"><button class="edit-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.editArchiveBill('${b.firestoreId}')">تعديل</button><button class="action-btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.deleteArchiveBill('${b.firestoreId}')">حذف</button></div></td></tr>`; 
+            });
             html += `</tbody></table></div>`;
         }
         
